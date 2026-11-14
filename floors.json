@@ -1,0 +1,29 @@
+{
+  "_comment": "Editable floor config: one floor = one group = its own feed. Floors you are not viewing are never loaded or polled. `roaming` points to roaming.json (agents that can be on any floor).",
+  "roaming": "./roaming.json",
+  "floors": [
+    {
+      "id": "competition",
+      "name": "Competition",
+      "order": 3,
+      "feed": "./floors/competition/status.json",
+      "theme": "sunset"
+    },
+    {
+      "id": "class",
+      "name": "Class",
+      "order": 2,
+      "feed": "./floors/class/status.json",
+      "theme": "mint"
+    },
+    {
+      "id": "lobby",
+      "name": "Lobby",
+      "order": 1,
+      "feed": "./floors/lobby/status.json",
+      "theme": "warm",
+      "default": true,
+      "note": "Unassigned bots"
+    }
+  ]
+}

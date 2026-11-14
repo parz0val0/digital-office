@@ -1,0 +1,175 @@
+{
+  "updatedAt": "2026-11-14T21:53:17+08:00",
+  "floors": [
+    {
+      "id": "competition",
+      "completion": 49,
+      "agents": 2,
+      "items": {
+        "done": 1,
+        "total": 4
+      },
+      "counts": {
+        "working": 1,
+        "thinking": 1
+      },
+      "members": [
+        {
+          "id": "competition",
+          "name": "competition",
+          "color": "#e03131",
+          "status": "working",
+          "desk": 0
+        },
+        {
+          "id": "match",
+          "name": "比赛",
+          "color": "#f08c00",
+          "status": "thinking",
+          "desk": 1
+        }
+      ],
+      "updatedAt": "2026-11-14T21:35:00+08:00"
+    },
+    {
+      "id": "class",
+      "completion": 61,
+      "agents": 2,
+      "items": {
+        "done": 2,
+        "total": 5
+      },
+      "counts": {
+        "thinking": 1,
+        "collaborating": 1
+      },
+      "members": [
+        {
+          "id": "class-arrangement",
+          "name": "排课",
+          "color": "#f4b400",
+          "status": "thinking",
+          "desk": 0
+        },
+        {
+          "id": "teacher",
+          "name": "老师",
+          "color": "#7c5cff",
+          "status": "collaborating",
+          "desk": 1
+        }
+      ],
+      "updatedAt": "2026-11-14T21:35:00+08:00"
+    },
+    {
+      "id": "lobby",
+      "completion": 52,
+      "agents": 11,
+      "items": {
+        "done": 2,
+        "total": 13
+      },
+      "counts": {
+        "working": 2,
+        "done": 1,
+        "error": 1,
+        "waiting": 1,
+        "thinking": 1,
+        "collaborating": 4,
+        "offline": 1
+      },
+      "members": [
+        {
+          "id": "grokbot",
+          "name": "Grok Bot",
+          "color": "#495057",
+          "status": "working",
+          "desk": 0
+        },
+        {
+          "id": "botmail",
+          "name": "botmail",
+          "color": "#ec6aa7",
+          "status": "done",
+          "desk": 1
+        },
+        {
+          "id": "director",
+          "name": "Director",
+          "color": "#e8590c",
+          "status": "error",
+          "desk": 2
+        },
+        {
+          "id": "last30days",
+          "name": "last30days",
+          "color": "#82c91e",
+          "status": "waiting",
+          "desk": 3
+        },
+        {
+          "id": "debug",
+          "name": "debug",
+          "color": "#be4bdb",
+          "status": "thinking",
+          "desk": 4
+        },
+        {
+          "id": "chat",
+          "name": "chat",
+          "color": "#339af0",
+          "status": "collaborating",
+          "desk": 5
+        },
+        {
+          "id": "window",
+          "name": "window",
+          "color": "#20c997",
+          "status": "collaborating",
+          "desk": 6
+        },
+        {
+          "id": "signal-trader",
+          "name": "Signal Trader",
+          "color": "#12b886",
+          "status": "working",
+          "desk": 7
+        },
+        {
+          "id": "grokbot-market",
+          "name": "grokbot market",
+          "color": "#845ef7",
+          "status": "offline",
+          "desk": 8
+        },
+        {
+          "id": "market-compare",
+          "name": "market·比价助手",
+          "color": "#22b8cf",
+          "status": "collaborating",
+          "desk": 9
+        },
+        {
+          "id": "codex-cli",
+          "name": "codex cli",
+          "color": "#3b82f6",
+          "status": "collaborating",
+          "desk": 10
+        }
+      ],
+      "updatedAt": "2026-11-14T21:35:00+08:00"
+    }
+  ],
+  "meta": {
+    "mock": true
+  },
+  "roamers": [
+    {
+      "id": "office",
+      "floor": "lobby",
+      "name": "office",
+      "color": "#ff8a3d",
+      "status": "working"
+    }
+  ]
+}
