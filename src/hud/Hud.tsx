@@ -345,7 +345,7 @@ export function BuildingTopBar({ b, error, fetchedAt, onReset }: { b: BuildingSu
           <div className="sub crumbs">
             <span className="crumb here">Building</span>
             <span className="sep">·</span>
-            <span>{fmtLongDate(new Date().toISOString())}</span>
+            <span>{fmtLongDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }))}</span>
           </div>
         </div>
       </div>
