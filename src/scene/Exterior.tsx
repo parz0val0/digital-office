@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { Plant } from './Furniture'
+import { NIGHT } from './tod'
 
 /** 楼层净高 / 楼板厚度 / 层距（紧贴堆叠，像真的大楼） */
 export const FLOOR_H = 5.2
@@ -15,8 +16,8 @@ export const PAL = {
   trim: '#f6f1e8',
   mullion: '#d2c7b6',
   glass: '#8fb4cc',
-  plaza: '#d8cfc0',
-  plazaLine: '#c9bfae',
+  plaza: '#e6dfd1',
+  plazaLine: '#d6ccba',
   grass: '#a9c98f',
   grassDark: '#98ba80',
   metal: '#c9ced3',
@@ -33,93 +34,150 @@ function Blk({ p, s, c, r = 0.03, shadow = false, rough = 0.85, emissive, ei = 0
   )
 }
 
+/** 玻璃幕墙的“天空倒影”贴图：上浅下深的蓝灰渐变 + 几道斜向高光 */
+function useGlassTex() {
+  const tex = useMemo(() => {
+    const c = document.createElement('canvas')
+    c.width = 512
+    c.height = 256
+    const g = c.getContext('2d')!
+    const gr = g.createLinearGradient(0, 0, 0, 256)
+    gr.addColorStop(0, '#b9d3e4')
+    gr.addColorStop(0.5, '#86abc4')
+    gr.addColorStop(1, '#5f86a3')
+    g.fillStyle = gr
+    g.fillRect(0, 0, 512, 256)
+    const streak = (x: number, wd: number, a: number) => {
+      g.save()
+      g.translate(x, 0)
+      g.transform(1, 0, -0.6, 1, 0, 0)
+      const lg = g.createLinearGradient(-wd, 0, wd, 0)
+      lg.addColorStop(0, 'rgba(255,255,255,0)')
+      lg.addColorStop(0.5, `rgba(255,255,255,${a})`)
+      lg.addColorStop(1, 'rgba(255,255,255,0)')
+      g.fillStyle = lg
+      g.fillRect(-wd, 0, wd * 2, 256)
+      g.restore()
+    }
+    streak(140, 40, 0.34)
+    streak(215, 9, 0.3)
+    streak(380, 56, 0.26)
+    streak(470, 12, 0.22)
+    const t = new THREE.CanvasTexture(c)
+    t.colorSpace = THREE.SRGBColorSpace
+    t.anisotropy = 4
+    return t
+  }, [])
+  useEffect(() => () => tex.dispose(), [tex])
+  return tex
+}
+
+const hash = (n: number) => {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453
+  return x - Math.floor(x)
+}
+
 /**
- * 外立面：只画镜头看得到的两面（前 +z / 右 +x）。玻璃幕墙 + 竖向窗框 + 窗下实体裙板 + 顶梁。
- * show=false 时整体淡出（进入该层时外壳褪去，露出详情房间）；hover 时窗户和顶梁亮起该层的强调色。
+ * 外立面：封闭的玻璃幕墙大楼。镜头看得到的两面（前 +z / 右 +x）画上：带天空倒影的有色反光玻璃、
+ * 纤细窗框网格、窗下裙板和顶梁，以及一部分亮灯的窗（暖光 + 该层强调色，晚上更亮；hover 时整层窗户亮起）。
+ * show=false 时整体淡出（进入该层时外壳褪去，露出详情房间）。
  */
-export function Facade({ w, d, accent, show, hover, lit }: { w: number; d: number; accent: string; show: boolean; hover: boolean; lit: boolean }) {
+export function Facade({ w, d, accent, show, hover, lit, seed = 0 }: { w: number; d: number; accent: string; show: boolean; hover: boolean; lit: boolean; seed?: number }) {
   const g = useRef<THREE.Group>(null!)
-  const mats = useRef<Map<string, { m: THREE.MeshStandardMaterial; base: number }>>(new Map())
+  const mats = useRef<Map<string, { m: THREE.Material; base: number }>>(new Map())
   const o = useRef(1)
   const glow = useRef(0)
-  const reg = (base: number) => (m: THREE.MeshStandardMaterial | null) => {
+  const tex = useGlassTex()
+  const reg = (base: number) => (m: THREE.Material | null) => {
     if (m) mats.current.set(m.uuid, { m, base })
   }
-  const glassMats = useRef<THREE.MeshStandardMaterial[]>([])
+  const litMats = useRef<THREE.MeshStandardMaterial[]>([])
   const beamMats = useRef<THREE.MeshStandardMaterial[]>([])
+  const baseLit = lit ? 0.12 + NIGHT * 1.6 : 0
   useFrame((_, dt) => {
     const k = 1 - Math.exp(-Math.min(dt, 0.05) * 5)
     o.current += ((show ? 1 : 0) - o.current) * k
     glow.current += ((hover ? 1 : 0) - glow.current) * (1 - Math.exp(-Math.min(dt, 0.05) * 8))
     mats.current.forEach(({ m, base }) => {
-      m.transparent = true
+      m.transparent = o.current < 0.995
       m.opacity = base * o.current
     })
-    glassMats.current.forEach((m) => m && (m.emissiveIntensity = glow.current * 0.55 + (lit ? 0.04 : 0)))
-    beamMats.current.forEach((m) => m && (m.emissiveIntensity = glow.current * 1.1))
+    litMats.current.forEach((m) => m && (m.emissiveIntensity = baseLit + glow.current * 2.2))
+    beamMats.current.forEach((m) => m && (m.emissiveIntensity = glow.current * 1.4))
     if (g.current) g.current.visible = o.current > 0.01
   })
   const H = FLOOR_H
-  const SP = 0.7 // 裙板高
-  const TOP = 0.5 // 顶梁高
+  const SP = 0.5 // 裙板高
+  const TOP = 0.38 // 顶梁高
   const gh = H - SP - TOP
   const faces: { len: number; along: 'x' | 'z'; at: number }[] = [
     { len: w, along: 'x', at: d / 2 },
     { len: d, along: 'z', at: w / 2 },
   ]
-  const accentSoft = lerpCol(accent, '#ffffff', 0.5)
+  const warm = lerpCol('#ffe2b0', accent, 0.2)
   const band = (len: number, y: number, h: number, c: string, i: number, track?: 'beam') => (
-    <mesh key={`b${i}-${y}`} position={[0, y, 0]} castShadow={false} receiveShadow>
-      <boxGeometry args={[len + 0.5, h, 0.28]} />
-      <meshStandardMaterial ref={(m) => { reg(1)(m); if (track && m) beamMats.current[i] = m }} color={c} roughness={0.85} emissive={accent} emissiveIntensity={0} />
+    <mesh key={`b${i}-${y}`} position={[0, y, 0]} receiveShadow>
+      <boxGeometry args={[len + 0.5, h, 0.3]} />
+      <meshStandardMaterial ref={(m) => { reg(1)(m); if (track && m) beamMats.current[i] = m }} color={c} roughness={0.8} emissive={accent} emissiveIntensity={0} />
     </mesh>
   )
   return (
     <group ref={g}>
       {faces.map((f, i) => {
-        const n = Math.max(2, Math.round(f.len / 1.9))
+        const n = Math.max(2, Math.round(f.len / 2.3))
         const step = f.len / n
+        const rows = 2
+        const rh = gh / rows
         return (
-          <group key={i} position={f.along === 'x' ? [0, 0, f.at] : [f.at, 0, 0]} rotation={[0, f.along === 'x' ? 0 : -Math.PI / 2, 0]}>
-            {/* 窗下裙板 + 顶梁 */}
+          <group key={i} position={f.along === 'x' ? [0, 0, f.at] : [f.at, 0, 0]} rotation={[0, f.along === 'x' ? 0 : Math.PI / 2, 0]}>
             {band(f.len, SP / 2, SP, PAL.concrete, i)}
-            {band(f.len, H - TOP / 2, TOP, lerpCol(PAL.trim, accent, 0.12), i, 'beam')}
-            {/* 玻璃 */}
-            <mesh position={[0, SP + gh / 2, 0]}>
-              <boxGeometry args={[f.len, gh, 0.05]} />
-              <meshStandardMaterial
-                ref={(m) => {
-                  reg(0.16)(m)
-                  if (m) glassMats.current[i] = m
-                }}
-                color={PAL.glass}
-                roughness={0.06}
-                metalness={0.15}
-                transparent
-                opacity={0.16}
-                depthWrite={false}
-                emissive={accentSoft}
-                emissiveIntensity={0}
-                envMapIntensity={0.5}
-              />
+            {band(f.len, H - TOP / 2, TOP, lerpCol(PAL.trim, accent, 0.14), i, 'beam')}
+            {/* 反光玻璃幕墙 */}
+            <mesh position={[0, SP + gh / 2, -0.02]}>
+              <planeGeometry args={[f.len, gh]} />
+              <meshStandardMaterial ref={reg(1)} map={tex} roughness={0.3} metalness={0.12} envMapIntensity={0.9} />
             </mesh>
-            {/* 竖向窗框 + 一道横档 */}
+            {/* 亮灯的窗格 */}
+            {Array.from({ length: n * rows }).map((_, k) => {
+              const c = k % n
+              const r = Math.floor(k / n)
+              if (hash(k * 7.3 + i * 31 + seed * 13) > 0.34) return null
+              return (
+                <mesh key={k} position={[-f.len / 2 + step * (c + 0.5), SP + rh * (r + 0.5), 0.0]}>
+                  <planeGeometry args={[step - 0.12, rh - 0.1]} />
+                  <meshStandardMaterial
+                    ref={(m) => {
+                      reg(1)(m)
+                      if (m) litMats.current[i * 100 + k] = m
+                    }}
+                    color={warm}
+                    emissive={warm}
+                    emissiveIntensity={baseLit}
+                    roughness={0.4}
+                    toneMapped={false}
+                  />
+                </mesh>
+              )
+            })}
+            {/* 窗框网格 */}
             {Array.from({ length: n + 1 }).map((_, k) => (
-              <mesh key={k} position={[-f.len / 2 + k * step, SP + gh / 2, 0]} receiveShadow>
-                <boxGeometry args={[0.1, gh, 0.2]} />
-                <meshStandardMaterial ref={reg(1)} color={PAL.mullion} roughness={0.6} metalness={0.2} />
+              <mesh key={k} position={[-f.len / 2 + k * step, SP + gh / 2, 0.03]} receiveShadow>
+                <boxGeometry args={[0.08, gh, 0.12]} />
+                <meshStandardMaterial ref={reg(1)} color={PAL.mullion} roughness={0.5} metalness={0.25} />
               </mesh>
             ))}
-            <mesh position={[0, SP + gh * 0.62, 0]}>
-              <boxGeometry args={[f.len, 0.07, 0.16]} />
-              <meshStandardMaterial ref={reg(1)} color={PAL.mullion} roughness={0.6} metalness={0.2} />
-            </mesh>
+            {Array.from({ length: rows - 1 }).map((_, k) => (
+              <mesh key={`h${k}`} position={[0, SP + rh * (k + 1), 0.03]}>
+                <boxGeometry args={[f.len, 0.07, 0.12]} />
+                <meshStandardMaterial ref={reg(1)} color={PAL.mullion} roughness={0.5} metalness={0.25} />
+              </mesh>
+            ))}
           </group>
         )
       })}
       {/* 转角立柱 */}
       <mesh position={[w / 2, H / 2, d / 2]} receiveShadow>
-        <boxGeometry args={[0.36, H, 0.36]} />
+        <boxGeometry args={[0.32, H, 0.32]} />
         <meshStandardMaterial ref={reg(1)} color={PAL.concreteDark} roughness={0.85} />
       </mesh>
     </group>
@@ -151,7 +209,7 @@ function Sign() {
       g.fill()
     })
     g.fillStyle = '#fff4e4'
-    g.font = '700 118px "Helvetica Neue", Arial, sans-serif'
+    g.font = '700 100px "Helvetica Neue", Arial, sans-serif'
     g.textBaseline = 'middle'
     g.fillText("Jason's Digital Office", 290, 140)
     const t = new THREE.CanvasTexture(c)
@@ -193,8 +251,64 @@ function ACUnit({ x, z, rot = 0 }: { x: number; z: number; rot?: number }) {
   )
 }
 
-/** 屋顶层：楼板 + 檐口 + 女儿墙；顶层有招牌、设备间、空调外机、天线；中间层是露台（花池/长椅/树）。 */
-export function RoofDeck({ w, d, accent, top, next }: { w: number; d: number; accent: string; top: boolean; next?: { w: number; d: number } }) {
+function SolarRow({ x, z, n = 4 }: { x: number; z: number; n?: number }) {
+  return (
+    <group position={[x, 0, z]}>
+      {Array.from({ length: n }).map((_, i) => (
+        <group key={i} position={[i * 2.05, 0.2, 0]} rotation={[-0.38, 0, 0]}>
+          <Blk p={[0, 0.5, 0]} s={[1.95, 0.07, 1.3]} c="#dfe6ee" r={0.02} shadow rough={0.5} />
+          <mesh position={[0, 0.55, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[1.8, 1.16]} />
+            <meshStandardMaterial color="#35508f" roughness={0.25} metalness={0.5} envMapIntensity={1.4} />
+          </mesh>
+          {[-0.45, 0, 0.45].map((gx) => (
+            <mesh key={gx} position={[gx, 0.556, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[0.02, 1.16]} />
+              <meshBasicMaterial color="#9db4e6" />
+            </mesh>
+          ))}
+          <mesh position={[0, 0.556, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[1.8, 0.02]} />
+            <meshBasicMaterial color="#9db4e6" />
+          </mesh>
+        </group>
+      ))}
+      <Blk p={[(n - 1) * 1.025, 0.1, 0.35]} s={[n * 2.05, 0.1, 0.12]} c="#aab0b6" r={0.02} />
+    </group>
+  )
+}
+
+function Bed({ x, z, w, d, flowers }: { x: number; z: number; w: number; d: number; flowers?: boolean }) {
+  const dots = useMemo(() => {
+    const out: { x: number; z: number; c: string }[] = []
+    const cols = ['#ff9eb5', '#ffd166', '#ffffff', '#ffb27a']
+    for (let i = 0; i < Math.round(w * d * 1.4); i++) out.push({ x: (Math.sin(i * 12.9898) * 0.5) * (w - 0.4), z: (Math.sin(i * 78.233 + 1) * 0.5) * (d - 0.4), c: cols[i % cols.length] })
+    return out
+  }, [w, d])
+  return (
+    <group position={[x, 0, z]}>
+      <Blk p={[0, 0.2, 0]} s={[w, 0.4, d]} c="#e7ddcc" r={0.1} shadow />
+      <mesh position={[0, 0.41, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[w - 0.3, d - 0.3]} />
+        <meshStandardMaterial color="#8fbf7c" roughness={1} />
+      </mesh>
+      {flowers &&
+        dots.map((f, i) => (
+          <mesh key={i} position={[f.x, 0.5, f.z]}>
+            <sphereGeometry args={[0.09, 6, 5]} />
+            <meshStandardMaterial color={f.c} roughness={0.9} />
+          </mesh>
+        ))}
+    </group>
+  )
+}
+
+/**
+ * 楼板 / 屋顶：实心楼板 + 出挑檐口（强调色细线）。
+ * 顶层（top）是一个精心布置的屋顶：女儿墙、楼梯间、空调外机、水箱、太阳能板、屋顶花园 + 小树 + 长椅、招牌、天线。
+ */
+export function RoofDeck({ w, d, accent, top, onGlass }: { w: number; d: number; accent: string; top: boolean; onGlass?: boolean }) {
+  void onGlass
   const T = ROOF_T
   const dw = w + 1.1
   const dd = d + 1.1
@@ -202,98 +316,76 @@ export function RoofDeck({ w, d, accent, top, next }: { w: number; d: number; ac
   useFrame(({ clock }) => {
     if (beacon.current) beacon.current.emissiveIntensity = 1.2 + Math.sin(clock.elapsedTime * 3) * 0.9
   })
-  // 露台（下一层是更小的楼层时，右侧和前侧会露出一块屋面）
-  const nx = next ? -w / 2 + next.w : w / 2
-  const nz = next ? -d / 2 + next.d : d / 2
-  const rightFree = next ? w / 2 - nx : 0
-  const frontFree = next ? d / 2 - nz : 0
-  const BW = 1.0
-  const bk = top ? 4.0 : BW
-  const innerD = dd - BW - bk
-  const skyZ = (dd / 2 - BW) - innerD / 2 + 0
-  const bands = [
-    { x: 0, z: dd / 2 - BW / 2, w: dw, d: BW },
-    { x: 0, z: -dd / 2 + bk / 2, w: dw, d: bk },
-    { x: -dw / 2 + BW / 2, z: (dd / 2 - BW - innerD / 2) , w: BW, d: innerD },
-    { x: dw / 2 - BW / 2, z: (dd / 2 - BW - innerD / 2), w: BW, d: innerD },
-  ]
+  const rim = lerpCol(PAL.trim, accent, 0.5)
   return (
     <group>
-      {/* 楼板：只做一圈边框（+ 屋顶设备带），中间是天窗，让镜头从上方看进室内（剖切 / 娃娃屋） */}
-      {bands.map((b, i) => (
-        <group key={i} position={[b.x, 0, b.z]}>
-          <Blk p={[0, T / 2 - 0.05, 0]} s={[b.w, T - 0.1, b.d]} c={PAL.concrete} r={0.04} />
-          <Blk p={[0, 0.0, 0]} s={[b.w - 0.1, 0.1, b.d - 0.1]} c={PAL.concreteDark} r={0.02} />
+      {/* 楼板：主体 + 下沿阴影缝 + 檐口 */}
+      <Blk p={[0, T / 2 - 0.05, 0]} s={[dw, T - 0.1, dd]} c={PAL.concrete} r={0.05} />
+      <Blk p={[0, T - 0.07, 0]} s={[dw + 0.18, 0.14, dd + 0.18]} c={rim} r={0.05} />
+      <Blk p={[0, 0.0, 0]} s={[dw - 0.5, 0.1, dd - 0.5]} c={PAL.concreteDark} r={0.02} />
+      {top && (
+        <>
+          {/* 女儿墙 */}
+          {[
+            { p: [0, T + 0.2, dd / 2 - 0.08] as [number, number, number], s: [dw, 0.4, 0.16] as [number, number, number] },
+            { p: [dw / 2 - 0.08, T + 0.2, 0] as [number, number, number], s: [0.16, 0.4, dd] as [number, number, number] },
+            { p: [0, T + 0.2, -dd / 2 + 0.08] as [number, number, number], s: [dw, 0.4, 0.16] as [number, number, number] },
+            { p: [-dw / 2 + 0.08, T + 0.2, 0] as [number, number, number], s: [0.16, 0.4, dd] as [number, number, number] },
+          ].map((b, i) => (
+            <Blk key={i} p={b.p} s={b.s} c={PAL.trim} r={0.04} />
+          ))}
+          {/* 屋面 */}
           <mesh position={[0, T + 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <planeGeometry args={[b.w - 0.02, b.d - 0.02]} />
-            <meshStandardMaterial color={top ? '#d9d2c6' : '#e2dccf'} roughness={0.95} />
+            <planeGeometry args={[dw - 0.3, dd - 0.3]} />
+            <meshStandardMaterial color="#e8e2d6" roughness={0.95} />
           </mesh>
-        </group>
-      ))}
-      {/* 檐口：整圈细线，用楼层强调色点一下 */}
-      <Blk p={[0, T - 0.07, dd / 2 + 0.04]} s={[dw + 0.18, 0.14, 0.2]} c={lerpCol(PAL.trim, accent, 0.5)} r={0.05} />
-      <Blk p={[dw / 2 + 0.04, T - 0.07, 0]} s={[0.2, 0.14, dd + 0.18]} c={lerpCol(PAL.trim, accent, 0.5)} r={0.05} />
-      <Blk p={[0, T - 0.07, -dd / 2 - 0.04]} s={[dw + 0.18, 0.14, 0.2]} c={lerpCol(PAL.trim, accent, 0.5)} r={0.05} />
-      <Blk p={[-dw / 2 - 0.04, T - 0.07, 0]} s={[0.2, 0.14, dd + 0.18]} c={lerpCol(PAL.trim, accent, 0.5)} r={0.05} />
-      {/* 天窗玻璃 */}
-      <mesh position={[0, T * 0.6, skyZ]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
-        <planeGeometry args={[dw - 2 * BW, dd - BW - bk]} />
-        <meshStandardMaterial color="#cfe3ee" transparent opacity={0.1} roughness={0.1} depthWrite={false} side={THREE.DoubleSide} envMapIntensity={0.3} />
-      </mesh>
-      {/* 女儿墙：整圈 */}
-      {[
-        { p: [0, T + 0.2, dd / 2 - 0.08] as [number, number, number], s: [dw, 0.4, 0.16] as [number, number, number] },
-        { p: [dw / 2 - 0.08, T + 0.2, 0] as [number, number, number], s: [0.16, 0.4, dd] as [number, number, number] },
-        { p: [0, T + 0.2, -dd / 2 + 0.08] as [number, number, number], s: [dw, 0.4, 0.16] as [number, number, number] },
-        { p: [-dw / 2 + 0.08, T + 0.2, 0] as [number, number, number], s: [0.16, 0.4, dd] as [number, number, number] },
-      ].map((b, i) => (
-        <Blk key={i} p={b.p} s={b.s} c={PAL.trim} r={0.04} />
-      ))}
-      {top ? (
-        <group position={[0, T, 0]}>
-          {/* 设备间（楼梯间） */}
-          <Blk p={[-w / 2 + 2.2, 0.9, -d / 2 + 1.9]} s={[3.6, 1.8, 2.6]} c={PAL.concrete} r={0.08} shadow />
-          <Blk p={[-w / 2 + 2.2, 1.86, -d / 2 + 1.9]} s={[3.9, 0.14, 2.9]} c={PAL.trim} r={0.05} />
-          <Blk p={[-w / 2 + 3.2, 0.75, -d / 2 + 3.22]} s={[0.9, 1.5, 0.08]} c={accent} r={0.03} />
-          {/* 空调外机 */}
-          <ACUnit x={w / 2 - 2.0} z={-d / 2 + 1.5} />
-          <ACUnit x={w / 2 - 3.8} z={-d / 2 + 1.5} />
-          <ACUnit x={w / 2 - 2.0} z={-d / 2 + 3.0} />
-          {/* 水箱 */}
-          <mesh position={[-w / 2 + 6.4, 0.8, -d / 2 + 1.5]} castShadow>
-            <cylinderGeometry args={[0.7, 0.7, 1.6, 20]} />
-            <meshStandardMaterial color="#d8dde1" roughness={0.6} metalness={0.2} />
+          {/* 走道铺装 */}
+          <mesh position={[0, T + 0.006, 1.2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <planeGeometry args={[dw - 2.4, 1.2]} />
+            <meshStandardMaterial color="#efe8dc" roughness={0.95} />
           </mesh>
-          {/* 天线 + 航空灯 */}
-          <mesh position={[w / 2 - 1.0, 1.7, -d / 2 + 3.0]} castShadow>
-            <cylinderGeometry args={[0.05, 0.08, 3.4, 8]} />
-            <meshStandardMaterial color={PAL.metal} metalness={0.5} roughness={0.4} />
-          </mesh>
-          <mesh position={[w / 2 - 1.0, 3.5, -d / 2 + 3.0]}>
-            <sphereGeometry args={[0.16, 12, 10]} />
-            <meshStandardMaterial ref={beacon} color="#ff6b5e" emissive="#ff4a3d" emissiveIntensity={1.5} />
-          </mesh>
-          {/* 招牌：立在屋顶后沿，朝向镜头 */}
-          <group position={[w / 2 - 6.0, 2.4, -d / 2 + 0.2]} rotation={[0, Math.PI / 4, 0]} scale={1.0}>
-            <Sign />
+          <group position={[0, T, 0]}>
+            {/* 楼梯间 + 门 */}
+            <Blk p={[-w / 2 + 2.2, 0.95, -d / 2 + 2.0]} s={[3.6, 1.9, 2.8]} c={PAL.concrete} r={0.08} shadow />
+            <Blk p={[-w / 2 + 2.2, 1.96, -d / 2 + 2.0]} s={[3.9, 0.14, 3.1]} c={PAL.trim} r={0.05} />
+            <Blk p={[-w / 2 + 3.3, 0.75, -d / 2 + 3.42]} s={[0.9, 1.5, 0.08]} c={accent} r={0.03} />
+            {/* 空调外机 */}
+            <ACUnit x={w / 2 - 2.0} z={-d / 2 + 1.5} />
+            <ACUnit x={w / 2 - 3.8} z={-d / 2 + 1.5} />
+            <ACUnit x={w / 2 - 2.0} z={-d / 2 + 3.0} />
+            {/* 水箱 */}
+            <mesh position={[-w / 2 + 6.2, 0.8, -d / 2 + 1.6]} castShadow>
+              <cylinderGeometry args={[0.75, 0.75, 1.6, 20]} />
+              <meshStandardMaterial color="#d8dde1" roughness={0.6} metalness={0.2} />
+            </mesh>
+            {/* 太阳能板阵列（两排） */}
+            <SolarRow x={0.6} z={-1.4} />
+            <SolarRow x={0.6} z={-3.2} />
+            {/* 屋顶花园 */}
+            <Bed x={-w / 2 + 3.6} z={d / 2 - 3.4} w={6.2} d={3.2} flowers />
+            <Tree x={-w / 2 + 2.0} z={d / 2 - 3.4} s={0.55} y={0.4} />
+            <Tree x={-w / 2 + 5.0} z={d / 2 - 3.9} s={0.42} y={0.4} />
+            <Bed x={w / 2 - 3.0} z={d / 2 - 3.4} w={4.2} d={1.6} />
+            <Plant x={w / 2 - 4.0} z={d / 2 - 3.4} s={0.8} />
+            <Plant x={w / 2 - 2.2} z={d / 2 - 3.4} s={0.8} c="#3f9d5d" />
+            {/* 长椅 */}
+            <Blk p={[-0.8, 0.28, d / 2 - 2.0]} s={[2.4, 0.12, 0.6]} c={accent} r={0.05} shadow />
+            <Blk p={[-0.8, 0.12, d / 2 - 2.0]} s={[2.2, 0.24, 0.5]} c="#c9bba5" r={0.04} />
+            {/* 天线 + 航空灯 */}
+            <mesh position={[w / 2 - 1.0, 1.7, -d / 2 + 3.8]} castShadow>
+              <cylinderGeometry args={[0.05, 0.08, 3.4, 8]} />
+              <meshStandardMaterial color={PAL.metal} metalness={0.5} roughness={0.4} />
+            </mesh>
+            <mesh position={[w / 2 - 1.0, 3.5, -d / 2 + 3.8]}>
+              <sphereGeometry args={[0.16, 12, 10]} />
+              <meshStandardMaterial ref={beacon} color="#ff6b5e" emissive="#ff4a3d" emissiveIntensity={1.5} />
+            </mesh>
+            {/* 招牌：立在屋顶后沿，朝向镜头 */}
+            <group position={[w / 2 - 6.4, 2.7, -d / 2 + 0.2]} rotation={[0, Math.PI / 4, 0]} scale={1.2}>
+              <Sign />
+            </group>
           </group>
-        </group>
-      ) : (
-        <group position={[0, T, 0]}>
-          {rightFree > 3 && (
-            <>
-              {[-d / 2 + 2.2, -d / 2 + 6.0, d / 2 - 1.8].map((z, i) => (
-                <group key={i} position={[w / 2 + 0.05, 0, z]}>
-                  <Blk p={[0, 0.25, 0]} s={[1.0, 0.5, 2.0]} c="#e7ddcc" r={0.1} shadow />
-                  <group position={[0, 0.5, 0]}>
-                    <Plant x={0} z={-0.5} s={0.65} c={i % 2 ? '#3f9d5d' : '#5aab6e'} />
-                    <Plant x={0} z={0.5} s={0.55} />
-                  </group>
-                </group>
-              ))}
-            </>
-          )}
-        </group>
+        </>
       )}
     </group>
   )
@@ -328,14 +420,27 @@ function Lamp({ x, z }: { x: number; z: number }) {
       </mesh>
       <mesh position={[0, 2.5, 0]}>
         <sphereGeometry args={[0.2, 14, 12]} />
-        <meshStandardMaterial color="#fff2d6" emissive="#ffd9a0" emissiveIntensity={1.6} />
+        <meshStandardMaterial color="#fff2d6" emissive="#ffd9a0" emissiveIntensity={1.4 + NIGHT * 2.6} toneMapped={false} />
       </mesh>
     </group>
   )
 }
 
 /** 地面：基座台阶 + 广场铺装 + 草坪 + 树 + 路灯 + 入口雨棚 + 门前人行道。随最底层一起移动。 */
-export function Ground({ w, d, accent }: { w: number; d: number; accent: string }) {
+export function Ground({ w, d, accent, hideFront = false }: { w: number; d: number; accent: string; hideFront?: boolean }) {
+  const front = useRef<THREE.Group>(null!)
+  const door = useRef<THREE.Group>(null!)
+  const fk = useRef(1)
+  useFrame((_, dt) => {
+    // 进入楼层视图时，门前的树 / 路灯 / 雨棚缩下去（会挡住前景）；回到整栋楼再长出来
+    fk.current += ((hideFront ? 0 : 1) - fk.current) * (1 - Math.exp(-Math.min(dt, 0.05) * 5))
+    for (const r of [front, door]) {
+      if (r.current) {
+        r.current.scale.setScalar(Math.max(0.001, fk.current))
+        r.current.visible = fk.current > 0.02
+      }
+    }
+  })
   const W = w + 9
   const D = d + 9
   const shadowTex = useMemo(() => {
@@ -384,6 +489,7 @@ export function Ground({ w, d, accent }: { w: number; d: number; accent: string 
       <RoundedBox args={[W * 0.4, 0.16, 3.0]} radius={0.08} smoothness={2} position={[-W / 2 + W * 0.22, -0.56, -D / 2 + 1.8]} receiveShadow>
         <meshStandardMaterial color={PAL.grassDark} roughness={1} />
       </RoundedBox>
+      <group ref={front}>
       <Tree x={-W / 2 + 2.2} z={D / 2 - 2.2} s={1.15} y={-0.5} />
       <Tree x={-W / 2 + 5.6} z={D / 2 - 2.0} s={0.85} y={-0.5} />
       <Tree x={W / 2 - 2.0} z={-D / 2 + 3.0} s={1.1} y={-0.5} />
@@ -393,6 +499,7 @@ export function Ground({ w, d, accent }: { w: number; d: number; accent: string 
         <Lamp x={ex - 3.2} z={d / 2 + 3.4} />
         <Lamp x={ex + 3.4} z={d / 2 + 3.4} />
         <Lamp x={w / 2 + 3.2} z={-1} />
+      </group>
       </group>
       {/* 门前人行道 */}
       <mesh position={[ex, -0.545, d / 2 + 2.9]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -404,11 +511,11 @@ export function Ground({ w, d, accent }: { w: number; d: number; accent: string 
         <meshStandardMaterial color="#f3ebdc" roughness={0.95} />
       </mesh>
       {/* 入口：门洞 + 雨棚 */}
-      <group position={[ex, 0, d / 2]}>
-        <Blk p={[0, 1.35, 0.12]} s={[2.4, 2.7, 0.18]} c="#6d6a7e" r={0.05} />
+      <group ref={door} position={[ex, 0, d / 2]}>
+        <Blk p={[0, 2.78, 0.12]} s={[2.4, 0.16, 0.18]} c="#6d6a7e" r={0.04} />
         <mesh position={[0, 1.35, 0.23]}>
           <planeGeometry args={[2.0, 2.4]} />
-          <meshStandardMaterial color="#cfe6f2" transparent opacity={0.55} roughness={0.05} emissive="#ffe9c6" emissiveIntensity={0.25} />
+          <meshStandardMaterial color="#cfe6f2" transparent opacity={0.55} roughness={0.05} emissive="#ffe0b0" emissiveIntensity={0.3 + NIGHT * 0.9} />
         </mesh>
         <Blk p={[0, 3.35, 1.1]} s={[4.6, 0.2, 2.4]} c={accent} r={0.08} shadow />
         <Blk p={[0, 3.55, 1.1]} s={[4.8, 0.12, 2.6]} c={PAL.trim} r={0.05} />

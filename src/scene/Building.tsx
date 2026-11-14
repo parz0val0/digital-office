@@ -10,11 +10,12 @@ import { makeLayout } from './layout'
 import { MiniFloor } from './Mini'
 import { fitFor, FloorContent } from './Scene'
 import { themeFor } from './themes'
+import { mix, NIGHT } from './tod'
 
 const LIFT = 34 // 进入某层时，上面的楼层向上 / 下面的楼层向下 移开的距离
 const CAM = 15
 const EL_FLOOR = Math.atan(1 / Math.SQRT2) // 35.26°：楼层内部的等距视角
-const EL_BUILDING = 0.42 // ≈24°：看大楼时略低，能透过玻璃幕墙看到楼里的小人
+const EL_BUILDING = 0.5 // ≈24°：看大楼时略低，能透过玻璃幕墙看到楼里的小人
 const T_IN = 1.7 // 进入楼层的镜头时长（秒）
 const T_OUT = 1.5 // 退出楼层的镜头时长
 const DT_MAX = new URLSearchParams(location.search).get('fast') === '1' ? 1 : 0.05 // ?fast=1：截图/测试用，补间不受帧率限制
@@ -253,9 +254,9 @@ function Backdrop() {
     c.height = 256
     const g = c.getContext('2d')!
     const gr = g.createLinearGradient(0, 0, 0, 256)
-    gr.addColorStop(0, '#cfdeec')
-    gr.addColorStop(0.55, '#ece6dd')
-    gr.addColorStop(1, '#f6e6d2')
+    gr.addColorStop(0, mix('#cfdeec', '#6f7db8', NIGHT))
+    gr.addColorStop(0.55, mix('#ece6dd', '#e6c3bd', NIGHT))
+    gr.addColorStop(1, mix('#f6e6d2', '#fbd0a2', NIGHT))
     g.fillStyle = gr
     g.fillRect(0, 0, 4, 256)
     const t = new THREE.CanvasTexture(c)
@@ -322,7 +323,9 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
 
   const info = (id: string) => summary?.floors.find((f) => f.id === id)
   const nOf = (f: FloorDef) => (detail && detail.floorId === f.id ? detail.snapshot.agents.length : info(f.id)?.members.length ?? 2)
-  const layouts = ordered.map((f) => makeLayout(Math.max(nOf(f), 2)))
+  // 统一楼板：所有楼层同样大小（按人数最多的那层、至少 8 人规格），像真正的塔楼
+  const plateN = Math.max(8, ...ordered.map((f) => nOf(f)))
+  const layouts = ordered.map(() => makeLayout(plateN))
   const dims = layouts.map((l) => ({ w: l.room.w, d: l.room.d }))
   const bFit = buildingFit(dims, size)
 
@@ -333,7 +336,7 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
   const maxW = Math.max(...dims.map((d) => d.w))
   const maxD = Math.max(...dims.map((d) => d.d))
   // 上层与底层的后左角对齐 → 在等距视角里上层不会遮住下层
-  const posOf = (i: number): [number, number] => [-(maxW - dims[i].w) / 2, -(maxD - dims[i].d) / 2]
+  const posOf = (_i: number): [number, number] => [0, 0]
   const want: Want =
     focusIdx != null && focusIdx >= 0
       ? { x: posOf(focusIdx)[0], z: posOf(focusIdx)[1] + 0.3, y: focusIdx * PITCH + 1.1, zoom: fOf(focusIdx), el: EL_FLOOR }
@@ -358,7 +361,7 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
       const el = labelEls.current[f.id]
       const g = slots.current[f.id]
       if (!el || !g) return
-      projVec.set(dims[i].w / 2 + 1.6, FLOOR_H * 0.5, -dims[i].d / 2 - 0.1)
+      projVec.set(dims[i].w / 2 + 0.55, FLOOR_H * 0.5, -dims[i].d / 2 - 0.55)
       g.localToWorld(projVec)
       projVec.project(camera)
       el.style.transform = `translate3d(${((projVec.x * 0.5 + 0.5) * size.width).toFixed(1)}px, ${((-projVec.y * 0.5 + 0.5) * size.height).toFixed(1)}px, 0)`
@@ -369,12 +372,12 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
     <>
       <Rig want={want} focusKey={focusId ?? ''} resetKey={p.resetKey} onZoomRatio={(r) => setNear(r > 0)} floorFit={floorFit} />
       <Backdrop />
-      <ambientLight intensity={0.28} />
-      <hemisphereLight args={['#dfeaf5', '#eadcc6', 0.95]} />
+      <ambientLight intensity={0.28 - NIGHT * 0.08} color={mix('#ffffff', '#c9c6ff', NIGHT)} />
+      <hemisphereLight args={[mix('#dfeaf5', '#aab6e8', NIGHT), mix('#eadcc6', '#d2b9a0', NIGHT), 0.95 - NIGHT * 0.45]} />
       <directionalLight
-        position={[14, 26, 11]}
-        color="#fff0da"
-        intensity={2.5}
+        position={[14, 26 - NIGHT * 8, 11]}
+        color={mix('#fff0da', '#ffbf8a', NIGHT)}
+        intensity={2.5 - NIGHT * 1.35}
         castShadow
         shadow-mapSize={p.quality === 'high' ? [4096, 4096] : [2048, 2048]}
         shadow-camera-left={-34}
@@ -387,10 +390,10 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
         shadow-normalBias={0.03}
         shadow-radius={5}
       />
-      <directionalLight position={[-12, 9, -9]} color="#cfe0ff" intensity={0.55} />
-      <Environment resolution={64} environmentIntensity={0.45}>
-        <Lightformer form="rect" intensity={2.2} color="#fff1dc" position={[6, 9, 7]} scale={[12, 8, 1]} onUpdate={(l) => l.lookAt(0, 0, 0)} />
-        <Lightformer form="rect" intensity={1.2} color="#c9dcf5" position={[-8, 5, -4]} scale={[10, 6, 1]} onUpdate={(l) => l.lookAt(0, 0, 0)} />
+      <directionalLight position={[-12, 9, -9]} color={mix('#cfe0ff', '#8da6ff', NIGHT)} intensity={0.55 + NIGHT * 0.3} />
+      <Environment resolution={64} environmentIntensity={0.45 - NIGHT * 0.17}>
+        <Lightformer form="rect" intensity={2.2} color={mix('#fff1dc', '#ffb88a', NIGHT)} position={[6, 9, 7]} scale={[12, 8, 1]} onUpdate={(l) => l.lookAt(0, 0, 0)} />
+        <Lightformer form="rect" intensity={1.2} color={mix('#c9dcf5', '#8c9ce6', NIGHT)} position={[-8, 5, -4]} scale={[10, 6, 1]} onUpdate={(l) => l.lookAt(0, 0, 0)} />
         <Lightformer form="ring" intensity={0.8} color="#ffffff" position={[0, 12, 0]} scale={10} onUpdate={(l) => l.lookAt(0, 0, 0)} />
       </Environment>
       {ordered.map((f, i) => {
@@ -409,13 +412,13 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
         return (
           <group key={f.id}>
             <FloorSlot idx={i} focusIdx={focusIdx} baseY={i * PITCH} pos={posOf(i)} reg={(g) => (slots.current[f.id] = g)}>
-              {i === 0 && <Ground w={maxW} d={maxD} accent={theme.accent} />}
+              {i === 0 && <Ground w={maxW} d={maxD} accent={theme.accent} hideFront={focusId != null} />}
               {showDetail ? (
                 <GrowIn key="detail" closing={closing} onClosed={() => setDetailId(null)}>
-                  <FloorContent view={{ floor: f, snapshot: detail!.snapshot, theme }} selectedId={p.selectedId} onSelect={p.onSelect} onHover={p.onHoverAgent} interactive />
+                  <FloorContent view={{ floor: f, snapshot: detail!.snapshot, theme }} selectedId={p.selectedId} onSelect={p.onSelect} onHover={p.onHoverAgent} interactive plateN={plateN} />
                 </GrowIn>
               ) : (
-                <MiniFloor key="mini" theme={theme} members={inf?.members ?? []} roamers={roamers} facade={inBuilding} hover={hov} {...ev} />
+                <MiniFloor key="mini" plateN={plateN} theme={theme} members={inf?.members ?? []} roamers={roamers} facade={inBuilding} hover={hov} {...ev} />
               )}
             </FloorSlot>
             {/* 屋面 / 天花板：进入这一层时随上面的楼层一起升走 */}
@@ -425,7 +428,7 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
                 onPointerOut={ev.onOut ? (e) => (e.stopPropagation(), ev.onOut!()) : undefined}
                 onClick={ev.onClick ? (e) => (e.stopPropagation(), ev.onClick!()) : undefined}
               >
-                <RoofDeck w={dims[i].w} d={dims[i].d} accent={theme.accent} top={top} next={i + 1 < N ? dims[i + 1] : undefined} />
+                <RoofDeck w={dims[i].w} d={dims[i].d} accent={theme.accent} top={top} />
               </group>
             </FloorSlot>
           </group>
@@ -454,6 +457,7 @@ function FloorLabel({ f, i, n, p, el }: { f: FloorDef; i: number; n: number; p: 
   const show = p.focusId == null
   return (
     <div ref={el} className="flpos">
+      <i className={`flline ${show ? '' : 'off'} ${hov ? 'hov' : ''}`} style={{ ['--a' as any]: th.accent }} />
       <div
         className={`flabel ${hov ? 'hov' : ''} ${show ? '' : 'off'}`}
         style={{ ['--a' as any]: th.accent }}

@@ -262,3 +262,16 @@ button.crumb:hover { background: #ffe0c2; }
 .flpos { position: absolute; left: 0; top: 0; will-change: transform; }
 .flabel { pointer-events: auto; cursor: pointer; }
 .flabel.off { pointer-events: none !important; }
+
+/* 楼层标牌：放在楼体右侧，用引线连到楼层边缘 */
+.flpos { }
+.flline { position: absolute; left: 0; top: 0; width: 46px; height: 2px; margin-top: -1px; background: color-mix(in srgb, var(--a) 70%, #fff); border-radius: 2px; transition: opacity .5s, width .15s; }
+.flline::before { content: ''; position: absolute; left: -3px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #fff; border: 2px solid var(--a); box-sizing: border-box; width: 10px; height: 10px; left: -5px; top: -4px; }
+.flline.off { opacity: 0; }
+.flline.hov { width: 52px; background: var(--a); height: 3px; }
+.flpos .flabel { margin-left: 46px; padding: 5px 10px 5px 5px; }
+.flpos .flnum { min-width: 38px; font-size: 16px; }
+.flpos .flbody { min-width: 104px; }
+@media (max-width: 900px) { .flline { width: 24px; } .flpos .flabel { margin-left: 24px; } }
+.flpos .flmeta { display: none; }
+.flpos .flname { font-size: 12px; }

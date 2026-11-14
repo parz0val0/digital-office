@@ -23,6 +23,7 @@ import {
   WallClock,
   WindowFrame,
 } from './Furniture'
+import { EmptyDesk } from './Mini'
 import { assignDesks, DESK_YAW, makeLayout, type Layout } from './layout'
 import type { Theme } from './themes'
 import { Whiteboard } from './Whiteboard'
@@ -71,12 +72,13 @@ export interface FloorProps {
   onSelect: (id: string | null) => void
   onHover: (id: string | null) => void
   interactive: boolean
+  plateN?: number
 }
 
-export function FloorContent({ view, selectedId, onSelect, onHover, interactive }: FloorProps) {
+export function FloorContent({ view, selectedId, onSelect, onHover, interactive, plateN = 0 }: FloorProps) {
   const { floor, snapshot, theme } = view
   const n = snapshot.agents.length
-  const layout = useMemo(() => makeLayout(Math.max(n, 2)), [n])
+  const layout = useMemo(() => makeLayout(Math.max(n, 2, plateN)), [n, plateN])
   const desks = useMemo(() => assignDesks(snapshot.agents), [snapshot.agents.map((a) => a.id + a.desk).join()])
   const everyone = useMemo(() => allAgents(snapshot), [snapshot.agents, snapshot.roamers])
   const links = useMemo(() => collabLinks(snapshot), [snapshot.agents, snapshot.roamers, snapshot.collaborations])
@@ -117,6 +119,10 @@ export function FloorContent({ view, selectedId, onSelect, onHover, interactive 
         return <Chair key={i} x={s.x} z={s.z} yaw={s.yaw} c={theme.chair} />
       })}
 
+      {Array.from({ length: Math.max(0, layout.n - n) }).map((_, k) => {
+        const p = layout.deskPos(n + k)
+        return <EmptyDesk key={`e${k}`} x={p.x} z={p.z} />
+      })}
       {snapshot.agents.map((a) => {
         const p = layout.deskPos(desks[a.id])
         const meta = STATUS_META[a.status]

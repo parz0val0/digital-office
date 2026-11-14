@@ -26,6 +26,8 @@ All links below were opened/verified (HTTP 200) on 2026-11-14.
 7. **Quality fallback**: `?quality=low` disables the composer and uses a smaller shadow map; auto-detected if the average frame rate stays below ~22 fps.
 
 ## Lessons from our own iterations
-- **Dollhouse cutaway beats a closed facade.** A fully opaque roof/ceiling hid every bot (interiors were only visible at grazing angles). Each floor slab is now a frame (parapet + rim) around a faint glass skylight, with a solid equipment strip only on the top deck, so the camera looks *into* every floor while the exterior still reads as a building.
-- Lower the building-view camera elevation (24° vs 35° inside floors) and keep N8AO weak there (`?aob=`) — AO under ceilings made bots muddy.
-- Debug params: `?quality=low|high`, `?tm=neutral|agx|aces`, `?aob=0.5`, `?fast=1` (headless testing only).
+- **Closed tower beats cutaway** (final decision, per Jason): same-footprint plate for every floor (sized for the busiest floor, empty desks fill the rest), solid roof with parapet / AC / solar rows / roof garden / sign, tinted reflective curtain wall (sky-gradient texture + glints + mullion grid), a fraction of windows lit warm and tinted with the floor accent, glow on hover. No interior is shown in building view; it appears when you zoom into a floor (facade and roof lift away).
+- Floor tags sit beside the building on leader lines, so they never cover the facade. The 1F entrance canopy, lamps and trees shrink away in floor views.
+- Evening mood: `?tod=day|dusk|night|0..1`, default from local clock (capped so it stays readable).
+- Lights: keep light counts constant (changing the count recompiles materials); point lights bleed through walls without shadows, so we dropped interior lights once the building became closed.
+- Debug params: `?quality=low|high`, `?tm=neutral|agx|aces`, `?aob=0.5`, `?tod=`, `?fast=1` (headless testing only).

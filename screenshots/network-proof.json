@@ -2,7 +2,7 @@
   "note": "interval=2000ms; headless swiftshader",
   "A_building_view_9s": {
     "FLOORS_CFG": 1,
-    "BUILDING": 5,
+    "BUILDING": 4,
     "ROAMING": 0,
     "lobby": 0,
     "class": 0,
