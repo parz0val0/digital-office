@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Digital Office floors.json",
+  "description": "楼层配置（可编辑）。一层 = 一个分组 = 一个独立的 status.json。",
+  "type": "object",
+  "required": [
+    "floors"
+  ],
+  "properties": {
+    "floors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "order",
+          "feed"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "name": {
+            "type": "string",
+            "description": "楼层名称（如 竞赛）"
+          },
+          "order": {
+            "type": "integer",
+            "description": "楼层号，数字越大越靠上（4 = 4F）"
+          },
+          "feed": {
+            "type": "string",
+            "description": "该层独立的 status.json，相对 floors.json 所在目录或绝对 URL"
+          },
+          "label": {
+            "type": "string",
+            "description": "楼层牌，默认 `${order}F`"
+          },
+          "theme": {
+            "enum": [
+              "warm",
+              "mint",
+              "night",
+              "sunset"
+            ],
+            "description": "配色主题，省略则按顺序轮换"
+          },
+          "default": {
+            "type": "boolean",
+            "description": "默认进入的楼层，也是新 bot 的默认归属"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

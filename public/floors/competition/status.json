@@ -1,0 +1,86 @@
+{
+  "floor": "competition",
+  "updatedAt": "2026-11-14T21:05:00+08:00",
+  "meta": {
+    "mock": true,
+    "note": "示例数据"
+  },
+  "plan": {
+    "date": "2026-11-14",
+    "items": [
+      {
+        "id": "c1",
+        "title": "整理报名截止日历",
+        "owner": "competition",
+        "status": "doing",
+        "progress": 55
+      },
+      {
+        "id": "c2",
+        "title": "筛选值得参加的竞赛",
+        "owner": "competition",
+        "status": "todo",
+        "progress": 10
+      },
+      {
+        "id": "c3",
+        "title": "赛题评分标准拆解",
+        "owner": "match",
+        "status": "done",
+        "progress": 100
+      },
+      {
+        "id": "c4",
+        "title": "参赛方案初稿",
+        "owner": "match",
+        "status": "doing",
+        "progress": 30
+      }
+    ]
+  },
+  "agents": [
+    {
+      "id": "competition",
+      "name": "competition",
+      "role": "竞赛助手",
+      "color": "#e03131",
+      "desk": 0,
+      "status": "working",
+      "currentTask": "整理本周竞赛日程与报名截止",
+      "progress": 55,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:40:00+08:00",
+          "text": "抓取 3 个竞赛官网的新通知"
+        },
+        {
+          "time": "2026-11-14T19:30:00+08:00",
+          "text": "更新报名截止日历"
+        }
+      ]
+    },
+    {
+      "id": "match",
+      "name": "比赛",
+      "role": "赛事分析",
+      "color": "#f08c00",
+      "desk": 1,
+      "status": "thinking",
+      "currentTask": "分析赛题并拟定参赛方案",
+      "progress": 30,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:28:00+08:00",
+          "text": "拆解赛题评分标准"
+        },
+        {
+          "time": "2026-11-14T19:10:00+08:00",
+          "text": "收集往届获奖方案"
+        }
+      ]
+    }
+  ],
+  "collaborations": []
+}

@@ -1,7 +1,10 @@
 import { RoundedBox } from '@react-three/drei'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { ROOM, TABLE } from './layout'
+import type { Theme } from './themes'
+
+type RoomDims = { w: number; d: number; wallH: number }
+type TableDims = { x: number; z: number; w: number; d: number }
 
 type V3 = [number, number, number]
 
@@ -47,42 +50,56 @@ export function Ball({ p, r, c, e, sc }: { p: V3; r: number; c: string; e?: bool
   )
 }
 
-function plankTexture() {
+function floorTexture(theme: Theme, room: RoomDims) {
   const c = document.createElement('canvas')
   c.width = c.height = 512
   const g = c.getContext('2d')!
-  const cols = ['#e2b57c', '#d9a96d', '#e8c08a', '#d4a063']
-  const pw = 512 / 4
-  for (let row = 0; row < 8; row++) {
-    const y = row * 64
-    let x = -(row % 2) * 64
-    let i = row
-    while (x < 512) {
-      g.fillStyle = cols[(i++ * 7 + row) % cols.length]
-      g.fillRect(x, y, pw, 64)
-      g.strokeStyle = 'rgba(120,70,30,0.35)'
-      g.lineWidth = 2
-      g.strokeRect(x, y, pw, 64)
-      x += pw
+  const cols = theme.floorCols
+  if (theme.pattern === 'tiles') {
+    const n = 8
+    const sz = 512 / n
+    for (let r = 0; r < n; r++)
+      for (let k = 0; k < n; k++) {
+        g.fillStyle = cols[(r + k) % cols.length]
+        g.fillRect(k * sz, r * sz, sz, sz)
+        g.strokeStyle = theme.floorLine
+        g.lineWidth = 3
+        g.strokeRect(k * sz, r * sz, sz, sz)
+      }
+  } else {
+    const pw = 512 / 4
+    for (let row = 0; row < 8; row++) {
+      const y = row * 64
+      let x = -(row % 2) * 64
+      let i = row
+      while (x < 512) {
+        g.fillStyle = cols[(i++ * 7 + row) % cols.length]
+        g.fillRect(x, y, pw, 64)
+        g.strokeStyle = theme.floorLine
+        g.lineWidth = 2
+        g.strokeRect(x, y, pw, 64)
+        x += pw
+      }
     }
   }
   const t = new THREE.CanvasTexture(c)
   t.wrapS = t.wrapT = THREE.RepeatWrapping
-  t.repeat.set(ROOM.w / 5, ROOM.d / 5)
+  t.repeat.set(room.w / (theme.pattern === 'tiles' ? 4 : 5), room.d / (theme.pattern === 'tiles' ? 4 : 5))
   t.colorSpace = THREE.SRGBColorSpace
   t.anisotropy = 4
   return t
 }
 
-export function Room() {
-  const tex = useMemo(plankTexture, [])
-  const { w, d, wallH } = ROOM
+export function Room({ room, theme }: { room: RoomDims; theme: Theme }) {
+  const tex = useMemo(() => floorTexture(theme, room), [theme, room.w, room.d])
+  useEffect(() => () => tex.dispose(), [tex])
+  const { w, d, wallH } = room
   return (
     <group>
       {/* 底座 */}
       <mesh position={[0, -0.55, 0]} receiveShadow>
         <boxGeometry args={[w + 1.2, 0.6, d + 1.2]} />
-        <meshStandardMaterial color="#8b6a4f" roughness={0.9} />
+        <meshStandardMaterial color={theme.slab} roughness={0.9} />
       </mesh>
       {/* 地板 */}
       <mesh position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -90,14 +107,14 @@ export function Room() {
         <meshStandardMaterial map={tex} roughness={0.85} />
       </mesh>
       {/* 后墙 / 左墙 */}
-      <Box p={[0, wallH / 2, -d / 2 - 0.15]} s={[w + 0.6, wallH, 0.3]} c="#fbe3c6" r={0.02} />
-      <Box p={[-w / 2 - 0.15, wallH / 2, 0]} s={[0.3, wallH, d + 0.0]} c="#d6ebe3" r={0.02} />
+      <Box p={[0, wallH / 2, -d / 2 - 0.15]} s={[w + 0.6, wallH, 0.3]} c={theme.wallBack} r={0.02} />
+      <Box p={[-w / 2 - 0.15, wallH / 2, 0]} s={[0.3, wallH, d + 0.0]} c={theme.wallLeft} r={0.02} />
       {/* 踢脚线 */}
-      <Box p={[0, 0.12, -d / 2 + 0.05]} s={[w, 0.24, 0.1]} c="#fff6e8" r={0.02} />
-      <Box p={[-w / 2 + 0.05, 0.12, 0]} s={[0.1, 0.24, d]} c="#fff6e8" r={0.02} />
+      <Box p={[0, 0.12, -d / 2 + 0.05]} s={[w, 0.24, 0.1]} c={theme.baseboard} r={0.02} />
+      <Box p={[-w / 2 + 0.05, 0.12, 0]} s={[0.1, 0.24, d]} c={theme.baseboard} r={0.02} />
       {/* 墙顶装饰条 */}
-      <Box p={[0, wallH + 0.04, -d / 2 - 0.15]} s={[w + 0.6, 0.12, 0.4]} c="#f2c48d" r={0.03} />
-      <Box p={[-w / 2 - 0.15, wallH + 0.04, 0]} s={[0.4, 0.12, d + 0.0]} c="#a9d0c3" r={0.03} />
+      <Box p={[0, wallH + 0.04, -d / 2 - 0.15]} s={[w + 0.6, 0.12, 0.4]} c={theme.trimBack} r={0.03} />
+      <Box p={[-w / 2 - 0.15, wallH + 0.04, 0]} s={[0.4, 0.12, d + 0.0]} c={theme.trimLeft} r={0.03} />
     </group>
   )
 }
@@ -169,18 +186,18 @@ export function Chair({ x, z, yaw = 0, c = '#6c7a89' }: { x: number; z: number; 
   )
 }
 
-export function MeetingTable() {
-  const { x, z, w, d } = TABLE
+export function MeetingTable({ table, theme }: { table: TableDims; theme: Theme }) {
+  const { x, z, w, d } = table
   return (
     <group position={[x, 0, z]}>
       {/* 地毯 */}
       <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[w + 3, d + 3.0]} />
-        <meshStandardMaterial color="#9ec9d9" roughness={1} />
+        <meshStandardMaterial color={theme.rug} roughness={1} />
       </mesh>
       <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[w + 2.4, d + 2.4]} />
-        <meshStandardMaterial color="#c8e3ec" roughness={1} />
+        <meshStandardMaterial color={theme.rugInner} roughness={1} />
       </mesh>
       {/* 桌面 */}
       <Box p={[0, 0.82, 0]} s={[w, 0.12, d]} c="#fff1d6" r={0.1} />
@@ -190,10 +207,10 @@ export function MeetingTable() {
       {/* 桌上小物 */}
       <Cyl p={[0, 0.95, 0]} r={0.16} h={0.14} c="#ffd166" />
       <Ball p={[0, 1.12, 0]} r={0.16} c="#ff8fab" />
-      <Box p={[-1.6, 0.9, 0.2]} s={[0.5, 0.03, 0.36]} c="#ffffff" r={0.01} rot={[0, 0.3, 0]} />
-      <Box p={[1.4, 0.9, -0.2]} s={[0.5, 0.03, 0.36]} c="#ffffff" r={0.01} rot={[0, -0.2, 0]} />
-      <Mug x={2.0} z={0.3} c="#7bd389" />
-      <Mug x={-2.4} z={-0.3} c="#ffb454" />
+      <Box p={[-Math.min(1.6, w / 2 - 1), 0.9, 0.2]} s={[0.5, 0.03, 0.36]} c="#ffffff" r={0.01} rot={[0, 0.3, 0]} />
+      <Box p={[Math.min(1.4, w / 2 - 1.2), 0.9, -0.2]} s={[0.5, 0.03, 0.36]} c="#ffffff" r={0.01} rot={[0, -0.2, 0]} />
+      <Mug x={Math.min(2.0, w / 2 - 0.8)} z={0.3} c="#7bd389" />
+      <Mug x={-Math.min(2.4, w / 2 - 0.7)} z={-0.3} c="#ffb454" />
     </group>
   )
 }

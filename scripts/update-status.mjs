@@ -3,7 +3,7 @@
  * 让 bot 更新自己在 status.json 里的条目（原子写入）。
  *
  * 用法示例：
- *   node scripts/update-status.mjs --id botmail --status working \
+ *   node scripts/update-status.mjs --floor lobby --id botmail --status working \
  *        --task "整理收件箱" --progress 40 --log "开始处理 23 封未读邮件"
  *   node scripts/update-status.mjs --id teacher --status collaborating --with class-arrangement --topic "周三课程调整"
  *   node scripts/update-status.mjs --id botmail --status done --progress 100 --plan-item p10:100:done
@@ -11,8 +11,13 @@
  *   node scripts/update-status.mjs --id botmail --json '{"currentTask":"…","progress":50}'                       # 直接合并字段
  *
  * 选项：
- *   --file <path>        status.json 路径（默认 public/status.json，或环境变量 STATUS_FILE）
- *   --id <agentId>       必填
+ *   --floor <floorId>    楼层 id（见 public/floors.json）。省略时：在所有楼层里按 agent id 查找；
+ *                        新 bot 且未指定 --floor → 放进标记 default 的楼层（默认大厅）
+ *   --floors <path>      floors.json 路径（默认 public/floors.json，或环境变量 FLOORS_FILE）
+ *   --file <path>        直接指定某个 status.json（覆盖楼层解析；环境变量 STATUS_FILE）
+ *   --sync-building      只重建 building.json 汇总（不需要 --id）；每次更新楼层后也会自动同步
+ *   --building <path>    building.json 路径（默认与 floors.json 同目录）
+ *   --id <agentId>       必填（除非 --sync-building）
  *   --status <s>         working|thinking|collaborating|waiting|done|error|offline
  *   --task <text>        currentTask
  *   --progress <0-100>   当前任务进度
@@ -37,7 +42,7 @@ const PLAN_STATUSES = ['todo', 'doing', 'done', 'blocked']
 
 function parseArgs(argv) {
   const o = { log: [], planItem: [], addPlan: [] }
-  const bool = new Set(['clear-collab', 'dry-run', 'reset-plan', 'help'])
+  const bool = new Set(['clear-collab', 'dry-run', 'reset-plan', 'help', 'sync-building'])
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (!a.startsWith('--')) continue
@@ -62,13 +67,15 @@ function fail(msg) {
 }
 
 const o = parseArgs(process.argv.slice(2))
-if (o.help || !o.id) {
+if (o.help || (!o.id && !o.syncBuilding)) {
   console.log(fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').split('*/')[0].replace('#!/usr/bin/env node\n', ''))
   process.exit(o.help ? 0 : 1)
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const file = path.resolve(o.file || process.env.STATUS_FILE || path.join(here, '..', 'public', 'status.json'))
+const publicDir = path.join(here, '..', 'public')
+const floorsFile = path.resolve(o.floors || process.env.FLOORS_FILE || path.join(publicDir, 'floors.json'))
+const buildingFile = path.resolve(o.building || path.join(path.dirname(floorsFile), 'building.json'))
 const now = new Date()
 const iso = (d) => {
   // 带本地时区偏移的 ISO 8601
@@ -81,6 +88,87 @@ const iso = (d) => {
 }
 const today = iso(now).slice(0, 10)
 
+function writeAtomic(file, text) {
+  const tmp = `${file}.${process.pid}.tmp`
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(tmp, text)
+  fs.renameSync(tmp, file)
+}
+function readJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+// ---- 楼层配置 ----
+const floorsCfg = fs.existsSync(floorsFile) ? readJson(floorsFile) : null
+const floorList = (floorsCfg?.floors ?? []).slice().sort((a, b) => (b.order ?? 0) - (a.order ?? 0))
+const feedPath = (f) => path.resolve(path.dirname(floorsFile), f.feed)
+const isUrl = (x) => /^https?:\/\//.test(x)
+
+function summarizeAll() {
+  const out = { updatedAt: iso(now), floors: [] }
+  for (const f of floorList) {
+    if (isUrl(f.feed)) continue
+    const d = fs.existsSync(feedPath(f)) ? readJson(feedPath(f)) : null
+    const items = d?.plan?.items ?? []
+    const completion = items.length ? Math.round(items.reduce((a, i) => a + (i.status === 'done' ? 100 : Math.max(0, Math.min(100, Number(i.progress) || 0))), 0) / items.length) : 0
+    const counts = {}
+    for (const a of d?.agents ?? []) counts[a.status] = (counts[a.status] ?? 0) + 1
+    out.floors.push({ id: f.id, completion, agents: (d?.agents ?? []).length, counts, updatedAt: d?.updatedAt ?? null })
+  }
+  return out
+}
+function syncBuilding() {
+  if (!floorList.length) return
+  if (o.dryRun) return
+  writeAtomic(buildingFile, JSON.stringify(summarizeAll(), null, 2) + '\n')
+  console.log(`✓ building.json 已同步 ${buildingFile}`)
+}
+
+if (o.syncBuilding && !o.id) {
+  if (!floorList.length) fail(`找不到楼层配置 ${floorsFile}`)
+  syncBuilding()
+  process.exit(0)
+}
+
+// ---- 解析目标 feed 文件 ----
+let file
+let floorDef = null
+if (o.file || process.env.STATUS_FILE) {
+  file = path.resolve(o.file || process.env.STATUS_FILE)
+  floorDef = o.floor ? floorList.find((f) => f.id === o.floor) ?? null : null
+} else if (floorList.length) {
+  if (o.floor) {
+    floorDef = floorList.find((f) => f.id === o.floor)
+    if (!floorDef) fail(`没有这个楼层: ${o.floor}（可用：${floorList.map((f) => f.id).join(', ')}）`)
+  } else {
+    // 在所有楼层里找这个 bot
+    for (const f of floorList) {
+      if (isUrl(f.feed) || !fs.existsSync(feedPath(f))) continue
+      if ((readJson(feedPath(f))?.agents ?? []).some((a) => a.id === o.id)) {
+        floorDef = f
+        break
+      }
+    }
+    if (!floorDef) {
+      floorDef = floorList.find((f) => f.default) ?? floorList[floorList.length - 1]
+      console.log(`ℹ 未指定 --floor 且 ${o.id} 尚不存在，放入默认楼层 ${floorDef.id}`)
+    }
+  }
+  if (isUrl(floorDef.feed)) fail(`楼层 ${floorDef.id} 的 feed 是远程地址，脚本只能写本地文件`)
+  file = feedPath(floorDef)
+  // 同一个 id 不允许出现在两层
+  for (const f of floorList) {
+    if (f.id === floorDef.id || isUrl(f.feed) || !fs.existsSync(feedPath(f))) continue
+    if ((readJson(feedPath(f))?.agents ?? []).some((a) => a.id === o.id)) fail(`${o.id} 已经在楼层 ${f.id} 中，请用 --floor ${f.id}（或先从那里移除）`)
+  }
+} else {
+  file = path.join(publicDir, 'status.json') // 兼容旧的单层模式
+}
+
 let data
 if (fs.existsSync(file)) {
   try {
@@ -91,6 +179,7 @@ if (fs.existsSync(file)) {
 } else {
   data = { updatedAt: iso(now), plan: { date: today, items: [] }, agents: [], collaborations: [] }
 }
+if (floorDef) data.floor = floorDef.id
 data.plan ??= { date: today, items: [] }
 data.plan.items ??= []
 data.agents ??= []
@@ -193,8 +282,6 @@ if (o.dryRun) {
   console.log(out)
   process.exit(0)
 }
-const tmp = `${file}.${process.pid}.tmp`
-fs.mkdirSync(path.dirname(file), { recursive: true })
-fs.writeFileSync(tmp, out)
-fs.renameSync(tmp, file)
-console.log(`✓ ${agent.id} → ${agent.status}${agent.currentTask ? `「${agent.currentTask}」` : ''} 已写入 ${file}`)
+writeAtomic(file, out)
+console.log(`✓ ${agent.id}${floorDef ? `@${floorDef.id}` : ''} → ${agent.status}${agent.currentTask ? `「${agent.currentTask}」` : ''} 已写入 ${file}`)
+if (floorDef) syncBuilding()

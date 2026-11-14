@@ -1,0 +1,50 @@
+{
+  "updatedAt": "2026-11-14T21:19:47+08:00",
+  "floors": [
+    {
+      "id": "competition",
+      "completion": 49,
+      "agents": 2,
+      "counts": {
+        "working": 1,
+        "thinking": 1
+      },
+      "updatedAt": "2026-11-14T21:05:00+08:00"
+    },
+    {
+      "id": "class",
+      "completion": 61,
+      "agents": 2,
+      "counts": {
+        "thinking": 1,
+        "collaborating": 1
+      },
+      "updatedAt": "2026-11-14T21:05:00+08:00"
+    },
+    {
+      "id": "trading",
+      "completion": 51,
+      "agents": 4,
+      "counts": {
+        "working": 1,
+        "offline": 1,
+        "collaborating": 2
+      },
+      "updatedAt": "2026-11-14T21:05:00+08:00"
+    },
+    {
+      "id": "lobby",
+      "completion": 49,
+      "agents": 8,
+      "counts": {
+        "working": 2,
+        "done": 1,
+        "error": 1,
+        "waiting": 1,
+        "thinking": 1,
+        "collaborating": 2
+      },
+      "updatedAt": "2026-11-14T21:05:00+08:00"
+    }
+  ]
+}

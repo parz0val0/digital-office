@@ -104,6 +104,7 @@ export function normalize(raw: any): Snapshot {
     log: Array.isArray(a.log) ? a.log.map((l: any) => ({ time: String(l.time ?? ''), text: String(l.text ?? '') })) : [],
   }))
   return {
+    floor: raw?.floor ? String(raw.floor) : undefined,
     updatedAt: String(raw?.updatedAt ?? new Date().toISOString()),
     meta: raw?.meta,
     plan: {

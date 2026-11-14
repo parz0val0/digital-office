@@ -4,70 +4,203 @@
   "title": "Digital Office status.json",
   "description": "数字办公室状态文件。前端每约 10 秒轮询一次。",
   "type": "object",
-  "required": ["updatedAt", "plan", "agents", "collaborations"],
+  "required": [
+    "updatedAt",
+    "plan",
+    "agents",
+    "collaborations"
+  ],
   "properties": {
-    "updatedAt": { "type": "string", "format": "date-time", "description": "最后一次写入时间（ISO 8601，建议带时区）" },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "最后一次写入时间（ISO 8601，建议带时区）"
+    },
     "meta": {
       "type": "object",
-      "properties": { "mock": { "type": "boolean" }, "note": { "type": "string" } },
+      "properties": {
+        "mock": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
       "additionalProperties": true
     },
     "plan": {
       "type": "object",
-      "required": ["date", "items"],
+      "required": [
+        "date",
+        "items"
+      ],
       "properties": {
-        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-        "items": { "type": "array", "items": { "$ref": "#/$defs/planItem" } }
+        "date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/planItem"
+          }
+        }
       }
     },
-    "agents": { "type": "array", "items": { "$ref": "#/$defs/agent" } },
-    "collaborations": { "type": "array", "items": { "$ref": "#/$defs/collaboration" } }
+    "agents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/agent"
+      }
+    },
+    "collaborations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/collaboration"
+      }
+    },
+    "floor": {
+      "type": "string",
+      "description": "可选：该 feed 所属楼层 id（floors.json 中的 id）"
+    }
   },
   "$defs": {
-    "status": { "enum": ["working", "thinking", "collaborating", "waiting", "done", "error", "offline"] },
+    "status": {
+      "enum": [
+        "working",
+        "thinking",
+        "collaborating",
+        "waiting",
+        "done",
+        "error",
+        "offline"
+      ]
+    },
     "planItem": {
       "type": "object",
-      "required": ["id", "title", "owner", "status", "progress"],
+      "required": [
+        "id",
+        "title",
+        "owner",
+        "status",
+        "progress"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "owner": { "type": "string", "description": "agents[].id" },
-        "status": { "enum": ["todo", "doing", "done", "blocked"] },
-        "progress": { "type": "number", "minimum": 0, "maximum": 100 }
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string",
+          "description": "agents[].id"
+        },
+        "status": {
+          "enum": [
+            "todo",
+            "doing",
+            "done",
+            "blocked"
+          ]
+        },
+        "progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
       }
     },
     "agent": {
       "type": "object",
-      "required": ["id", "name", "role", "color", "desk", "status"],
+      "required": [
+        "id",
+        "name",
+        "role",
+        "color",
+        "desk",
+        "status"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
-        "name": { "type": "string" },
-        "role": { "type": "string" },
-        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
-        "desk": { "type": "integer", "minimum": 0, "description": "工位编号，0-10 为内置工位" },
-        "status": { "$ref": "#/$defs/status" },
-        "currentTask": { "type": "string" },
-        "progress": { "type": "number", "minimum": 0, "maximum": 100 },
-        "collaboratingWith": { "type": "array", "items": { "type": "string" } },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "desk": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "工位顺序（该层内按数值排序后依次分配工位）"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "currentTask": {
+          "type": "string"
+        },
+        "progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "collaboratingWith": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "log": {
           "type": "array",
           "description": "最新的在前；前端只展示最近 20 条",
           "items": {
             "type": "object",
-            "required": ["time", "text"],
-            "properties": { "time": { "type": "string" }, "text": { "type": "string" } }
+            "required": [
+              "time",
+              "text"
+            ],
+            "properties": {
+              "time": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
           }
         }
       }
     },
     "collaboration": {
       "type": "object",
-      "required": ["from", "to", "topic", "since"],
+      "required": [
+        "from",
+        "to",
+        "topic",
+        "since"
+      ],
       "properties": {
-        "from": { "type": "string" },
-        "to": { "type": "string" },
-        "topic": { "type": "string" },
-        "since": { "type": "string", "format": "date-time" }
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string",
+          "format": "date-time"
+        }
       }
     }
   }

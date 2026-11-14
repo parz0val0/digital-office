@@ -1,22 +1,76 @@
 # 数据契约 · `status.json`
 
-数字办公室是**纯展示**的前端：它只读一个 JSON 文件（默认 `./status.json`，与 `index.html` 同目录），
-每 10 秒轮询一次。任何 bot 只要能写这个文件（或让某个 HTTP 地址返回同样结构的 JSON），就能出现在办公室里。
+数字办公室是一栋**大楼**：一个分组 = 一层楼 = 一个**独立**的 `status.json`。前端是**纯展示**的：
+只读「当前正在看的那一层」的 feed（每 10 秒轮询一次），其他楼层**完全不加载、不轮询**（见下文“按需加载”）。
+任何 bot 只要能写自己所在楼层的 feed 文件（或让某个 HTTP 地址返回同样结构的 JSON），就能出现在那一层。
 
-- 机器可读的 JSON Schema：[`status.schema.json`](./status.schema.json)
-- 示例：[`../public/status.json`](../public/status.json)
+- 机器可读的 JSON Schema：[`status.schema.json`](./status.schema.json)（每层 feed）、[`floors.schema.json`](./floors.schema.json)（楼层配置）、[`building.schema.json`](./building.schema.json)（总览汇总）
+- 示例：[`../public/floors.json`](../public/floors.json)、[`../public/floors/lobby/status.json`](../public/floors/lobby/status.json)、[`../public/building.json`](../public/building.json)
 - 更新脚本：[`../scripts/update-status.mjs`](../scripts/update-status.mjs)
+
+## 楼层配置 `floors.json`
+
+文件位置 `public/floors.json`（部署后与 `index.html` 同目录），**随时可改**：增删楼层、改名、换层、把 bot 挪到别的楼层都只需要编辑配置/feed，无需改代码。
+
+```jsonc
+{
+  "floors": [
+    { "id": "competition", "name": "竞赛",          "order": 4, "feed": "./floors/competition/status.json", "theme": "sunset" },
+    { "id": "class",       "name": "课程",          "order": 3, "feed": "./floors/class/status.json",       "theme": "mint"   },
+    { "id": "trading",     "name": "交易",          "order": 2, "feed": "./floors/trading/status.json",     "theme": "night"  },
+    { "id": "lobby",       "name": "大厅 / 未分组", "order": 1, "feed": "./floors/lobby/status.json",       "theme": "warm", "default": true }
+  ]
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 楼层 id（小写字母/数字/`-`/`_`），用于 `?floor=<id>` 与 `--floor <id>` |
+| `name` | 楼层名称，显示在电梯面板、墙上招牌、顶栏 |
+| `order` | 楼层号，数字越大越靠上；电梯面板从高到低排列，招牌默认显示 `${order}F` |
+| `feed` | 该层独立的 status.json；相对路径按 floors.json 所在目录解析，也可以是绝对 URL（需 CORS） |
+| `label` | 可选，覆盖楼层牌（默认 `4F`） |
+| `theme` | 可选：`warm` 暖木 · `mint` 薄荷 · `night` 夜蓝石板 · `sunset` 暖红；省略时按顺序轮换 |
+| `default` | 可选：默认进入的楼层，也是新 bot（未指定 `--floor`）的默认归属；都没标记时用最低的一层 |
+
+**初始分组是估计值（请按需修改）**：4F 竞赛（competition、比赛）· 3F 课程（排课、老师）· 2F 交易（Signal Trader、grokbot market、market·比价助手、codex cli）· 1F 大厅/未分组（office、Grok Bot、botmail、Director、last30days、debug、chat、window）。
+
+每层 feed 的结构与下文完全一致（可选地多一个 `"floor": "<id>"` 字段）。**一个 bot id 只应出现在一层**（id 在整栋楼内唯一）。
+楼层大小随成员数自动变化：成员少 → 房间小、工位少（如 2 人的竞赛层是单排小房间，8 人的大厅是两排大房间）。
+没有 `floors.json` 时退化为单层模式，读取 `./status.json`。
+
+### 按需加载（不看就不耗）
+
+- 启动时只读一次 `floors.json`（静态配置，不含 bot 数据），然后只请求**当前楼层**的 feed。
+- 切换楼层：立即 `abort` 旧楼层在途请求并停止旧轮询，再开始新楼层的轮询；**不预取**其他楼层。
+- 标签页隐藏（`visibilitychange`）时暂停轮询并中止在途请求，恢复可见时立即补拉一次。
+- `?demo=1`：只拉取当前楼层一次作为种子，之后只在本地模拟当前楼层，不再发请求。
+- `building.json`（见下）**只在打开“大楼总览”时**读取，打开期间每 15 秒刷新、关闭即停；它是静态汇总文件，读取它不会触发任何 bot 活动。
+
+### 大楼总览 `building.json`
+
+极小的汇总文件，每层一条，供“大楼总览”面板显示各层完成度与人数，而不必加载各层 feed：
+
+```jsonc
+{ "updatedAt": "2026-11-14T21:19:47+08:00",
+  "floors": [ { "id": "trading", "completion": 51, "agents": 4, "counts": { "working": 1, "offline": 1, "collaborating": 2 }, "updatedAt": "…" } ] }
+```
+
+`scripts/update-status.mjs` 每次更新任一楼层后会自动重建它；也可以手动 `node scripts/update-status.mjs --sync-building`。
 
 ## URL 参数
 
 | 参数 | 说明 |
 | --- | --- |
-| `?feed=<url>` | 指定数据地址（相对/绝对 URL，需允许 CORS），默认 `./status.json` |
+| `?floor=<id>` | 打开时进入的楼层（默认：`default` 楼层）。切换楼层时地址栏会同步更新 |
+| `?floors=<url>` | 指定楼层配置地址，默认 `./floors.json` |
+| `?feed=<url>` | 覆盖**当前楼层**的 feed 地址（调试用） |
 | `?interval=<ms>` | 轮询间隔，默认 10000，最小 2000 |
-| `?demo=1` | 演示模式：忽略 feed，用本地模拟器在示例数据上随机切换状态 |
+| `?demo=1` | 演示模式：只模拟当前楼层，用本地模拟器在示例数据上随机切换状态 |
 | `?select=<agentId>` | 打开页面时自动选中某个 bot（打开侧边详情） |
 
-读取失败时：保留上一次成功的数据；如果从未成功过，则显示内置示例数据并提示“未连接 status.json”。
+读取失败时：保留上一次成功的数据；如果该楼层从未成功过，则显示空楼层并提示“未连接该楼层的 status.json”。
+键盘：`↑` / `↓` 切换楼层，`Esc` 取消选中。
 
 ## 顶层结构
 
@@ -41,7 +95,7 @@
 | `name` | string | 名牌上显示的名字 |
 | `role` | string | 角色/职责（如“数字工程师”） |
 | `color` | `#rrggbb` | 角色主色 |
-| `desk` | integer | 工位编号 0–11（0–4 后排，5–10 前排，11 后排最右）；冲突时自动排到空位 |
+| `desk` | integer | 工位顺序（该层内按数值排序后依次分配工位，冲突/空缺自动顺延；房间大小由该层成员数决定） |
 | `status` | enum | `working` 工作中 · `thinking` 思考中 · `collaborating` 协作中 · `waiting` 等待确认 · `done` 已完成 · `error` 出错 · `offline` 离线 |
 | `currentTask` | string? | 当前任务描述 |
 | `progress` | 0–100? | 当前任务进度 |
@@ -85,7 +139,12 @@
 
 ## 让 bot 自己更新
 
+`--floor <id>` 指定写哪一层；不写时脚本会在所有楼层里按 bot id 查找，找不到（新 bot）就放进 `default` 楼层。新 bot 会在其所在楼层内自动分配工位。
+
 ```bash
+# 指定楼层（新 bot 首次上线时自动在该层创建并分配工位）
+node scripts/update-status.mjs --floor trading --id new-trader --name "新交易 bot" --role "交易" --color "#12b886" --status working
+
 # 开始工作
 node scripts/update-status.mjs --id botmail --status working --task "整理收件箱" --progress 10 --log "开始处理"
 # 进度推进 + 更新计划项
@@ -100,7 +159,9 @@ node scripts/update-status.mjs --id botmail --status done --progress 100 --plan-
 node scripts/update-status.mjs --id newbot --name "新 bot" --role "测试" --color "#ff8a3d" --status working
 ```
 
-- 默认写 `public/status.json`；用 `--file` 或环境变量 `STATUS_FILE` 指向部署目录里的文件（例如 `dist/status.json`）。
+- 默认读写 `public/floors.json` 指向的各层 feed；部署后用 `--floors dist/floors.json`（或环境变量 `FLOORS_FILE`）指向部署目录里的配置。`--file` 可直接指定某个 feed 文件。
+- 同一个 bot id 出现在另一层时会报错（避免重复），请显式 `--floor`。
+- 每次写入后自动同步 `building.json`（可用 `--building` 指定路径）。
 - 写入是原子的（临时文件 + rename），前端不会读到半个文件。
 - 一旦有真实写入，会自动移除 `meta.mock`。
 - 多个 bot 同时写同一文件有极小概率互相覆盖；上线真实 bot 后建议改为“每 bot 一个 HTTP 上报接口 → 服务端合并”，契约保持不变。

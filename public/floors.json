@@ -1,0 +1,34 @@
+{
+  "_comment": "楼层配置（可编辑）：每层一个独立 feed，没有在看的楼层不会被加载/轮询。最初分组为估计值，请按需修改。",
+  "floors": [
+    {
+      "id": "competition",
+      "name": "竞赛",
+      "order": 4,
+      "feed": "./floors/competition/status.json",
+      "theme": "sunset"
+    },
+    {
+      "id": "class",
+      "name": "课程",
+      "order": 3,
+      "feed": "./floors/class/status.json",
+      "theme": "mint"
+    },
+    {
+      "id": "trading",
+      "name": "交易",
+      "order": 2,
+      "feed": "./floors/trading/status.json",
+      "theme": "night"
+    },
+    {
+      "id": "lobby",
+      "name": "大厅 / 未分组",
+      "order": 1,
+      "feed": "./floors/lobby/status.json",
+      "theme": "warm",
+      "default": true
+    }
+  ]
+}

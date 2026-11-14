@@ -3,7 +3,6 @@ import * as THREE from 'three'
 import { itemProgress, overallProgress } from '../meta'
 import type { Snapshot } from '../types'
 import { Box } from './Furniture'
-import { ROOM } from './layout'
 
 const FONT = '"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",sans-serif'
 const W = 1800
@@ -116,16 +115,18 @@ function draw(c: HTMLCanvasElement, s: Snapshot) {
   }
 }
 
-export function Whiteboard({ snapshot }: { snapshot: Snapshot }) {
+export function Whiteboard({ snapshot, room }: { snapshot: Snapshot; room: { w: number; d: number; wallH: number } }) {
   const { canvas, tex } = useMemo(() => {
     const canvas = document.createElement('canvas')
     canvas.width = W
     canvas.height = H
+    draw(canvas, snapshot) // 首帧就有内容，避免切楼层时闪黑
     const tex = new THREE.CanvasTexture(canvas)
     tex.colorSpace = THREE.SRGBColorSpace
     tex.anisotropy = 8
     return { canvas, tex }
   }, [])
+  useEffect(() => () => tex.dispose(), [tex])
   useEffect(() => {
     draw(canvas, snapshot)
     tex.needsUpdate = true
@@ -135,11 +136,11 @@ export function Whiteboard({ snapshot }: { snapshot: Snapshot }) {
       tex.needsUpdate = true
     })
   }, [snapshot.plan, snapshot.agents.length, canvas, tex]) // eslint-disable-line react-hooks/exhaustive-deps
-  const w = 9.6
+  const w = Math.min(8.4, room.w - 5)
   const h = (w * H) / W
-  const z = -ROOM.d / 2
+  const z = -room.d / 2
   return (
-    <group position={[0, 2.35, z]}>
+    <group position={[0, Math.max(h / 2 + 0.55, 2.2), z]}>
       <Box p={[0, 0, 0.04]} s={[w + 0.3, h + 0.3, 0.1]} c="#f4d6a8" r={0.05} />
       <mesh position={[0, 0, 0.1]}>
         <planeGeometry args={[w, h]} />

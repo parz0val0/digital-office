@@ -4,7 +4,7 @@ import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { STATUS_META } from '../meta'
 import type { Agent } from '../types'
-import { buildRoute, poseRegistry } from './layout'
+import { poseRegistry, type Layout } from './layout'
 
 const ACCESSORY: Record<string, string> = {
   office: 'hardhat',
@@ -219,6 +219,7 @@ function Accessory({ kind, color, accent }: { kind: string; color: string; accen
 }
 
 export interface CharacterProps {
+  layout: Layout
   agent: Agent
   index: number
   deskSlot: number
@@ -232,7 +233,7 @@ export interface CharacterProps {
 const SIT_LIFT = 0.26
 const CHAR_SCALE = 1.18
 
-export function Character({ agent, index, deskSlot, seat, selected, partnerNames, onSelect, onHover }: CharacterProps) {
+export function Character({ layout, agent, index, deskSlot, seat, selected, partnerNames, onSelect, onHover }: CharacterProps) {
   const st = agent.status
   const offline = st === 'offline'
   const base = offline ? lerpColor(agent.color, '#9aa0a6', 0.8) : agent.color
@@ -242,7 +243,7 @@ export function Character({ agent, index, deskSlot, seat, selected, partnerNames
   const accent = lerpColor(base, '#ffffff', 0.4)
   const acc = ACCESSORY[agent.id] ?? FALLBACK_ACC[index % FALLBACK_ACC.length]
 
-  const { route, seatYaw, deskYaw } = useMemo(() => buildRoute(deskSlot, seat), [deskSlot, seat])
+  const { route, seatYaw, deskYaw } = useMemo(() => layout.buildRoute(deskSlot, seat), [layout, deskSlot, seat])
   const root = useRef<THREE.Group>(null!)
   const bodyG = useRef<THREE.Group>(null!)
   const headG = useRef<THREE.Group>(null!)

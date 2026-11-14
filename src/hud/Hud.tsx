@@ -12,7 +12,8 @@ import {
   PLAN_STATUS_LABEL,
   STATUS_META,
 } from '../meta'
-import type { Agent, AgentStatus, FeedSource, Snapshot } from '../types'
+import type { Agent, AgentStatus, BuildingSummary, FeedSource, FloorDef, Snapshot } from '../types'
+import { themeFor } from '../scene/themes'
 
 function useNow(ms = 1000) {
   const [n, setN] = useState(Date.now())
@@ -48,7 +49,7 @@ export function StatusChip({ status }: { status: AgentStatus }) {
   )
 }
 
-export function TopBar({ s, source, fetchedAt, onReset }: { s: Snapshot; source: FeedSource; fetchedAt: number; onReset: () => void }) {
+export function TopBar({ s, source, fetchedAt, onReset, floor, floorLabel }: { s: Snapshot; source: FeedSource; fetchedAt: number; onReset: () => void; floor: FloorDef | null; floorLabel: string }) {
   const now = useNow()
   const total = overallProgress(s)
   const counts: Partial<Record<AgentStatus, number>> = {}
@@ -57,20 +58,27 @@ export function TopBar({ s, source, fetchedAt, onReset }: { s: Snapshot; source:
   const stale = source === 'live' && !s.meta?.mock && upd && now - upd.getTime() > 10 * 60 * 1000
   const doneItems = s.plan.items.filter((i) => i.status === 'done').length
   const srcLabel =
-    source === 'demo' ? '演示模式' : source === 'fallback' ? '示例数据（未连接 status.json）' : source === 'loading' ? '加载中…' : s.meta?.mock ? '示例数据' : stale ? '数据可能已过期' : '实时'
+    source === 'demo' ? '演示模式' : source === 'fallback' ? '未连接该楼层的 status.json' : source === 'loading' ? '加载中…' : s.meta?.mock ? '示例数据' : stale ? '数据可能已过期' : '实时'
   const srcCls = source === 'live' && !s.meta?.mock && !stale ? 'live' : stale || source === 'fallback' ? 'warn' : 'demo'
   return (
     <header className="topbar">
       <div className="brand">
         <span className="logo">🏢</span>
         <div>
-          <h1>Jason 的数字办公室</h1>
+          <h1>
+            Jason 的数字办公室
+            {floor && (
+              <span className="floortag">
+                {floorLabel} {floor.name}
+              </span>
+            )}
+          </h1>
           <div className="sub">{fmtDate(s.plan.date)}</div>
         </div>
       </div>
       <div className="overall">
         <div className="overall-head">
-          <span>今日计划完成度</span>
+          <span>{floor ? `${floor.name} · ` : ''}今日计划完成度</span>
           <b>{total}%</b>
           <em>
             {doneItems}/{s.plan.items.length} 项已完成
@@ -102,10 +110,10 @@ export function TopBar({ s, source, fetchedAt, onReset }: { s: Snapshot; source:
   )
 }
 
-export function MemberList({ s, selectedId, onSelect, hoverId }: { s: Snapshot; selectedId: string | null; onSelect: (id: string) => void; hoverId: string | null }) {
+export function MemberList({ s, selectedId, onSelect, hoverId, floorName }: { s: Snapshot; selectedId: string | null; onSelect: (id: string) => void; hoverId: string | null; floorName?: string }) {
   return (
     <aside className="left panel">
-      <h2>成员任务 <small>{s.agents.length} 位</small></h2>
+      <h2>{floorName ? `${floorName} · ` : ''}成员任务 <small>{s.agents.length} 位</small></h2>
       <div className="list">
         {s.agents.map((a) => {
           const m = STATUS_META[a.status]
@@ -250,5 +258,90 @@ export function Legend() {
       ))}
       <span className="tip">拖动旋转 · 滚轮缩放 · 点击角色查看详情</span>
     </div>
+  )
+}
+
+
+/** 电梯式楼层选择 + 大楼总览。只有展开（总览）时才读取 building.json。 */
+export function Elevator({
+  floors,
+  currentId,
+  loading,
+  liveCount,
+  expanded,
+  onToggle,
+  onGo,
+  summary,
+  summaryError,
+}: {
+  floors: FloorDef[]
+  currentId: string
+  loading: boolean
+  liveCount: number | null
+  expanded: boolean
+  onToggle: () => void
+  onGo: (id: string) => void
+  summary: BuildingSummary | null
+  summaryError: boolean
+}) {
+  return (
+    <nav className={`elevator ${expanded ? 'open' : ''}`} aria-label="楼层选择">
+      <div className="el-head">
+        <b>🛗 大楼</b>
+        <button className="btn mini" onClick={onToggle} aria-pressed={expanded} title="展开后读取 building.json 汇总（不会加载其他楼层的数据）">
+          {expanded ? '收起' : '总览'}
+        </button>
+      </div>
+      <div className="roof" />
+      <div className="stack">
+        {floors.map((f, i) => {
+          const cur = f.id === currentId
+          const sum = summary?.floors.find((x) => x.id === f.id)
+          const count = cur && liveCount != null ? liveCount : sum?.agents
+          const th = themeFor(f.theme, floors.length - 1 - i)
+          return (
+            <button
+              key={f.id}
+              className={`flr ${cur ? 'cur' : ''}`}
+              style={{ ['--a' as any]: th.accent }}
+              onClick={() => onGo(f.id)}
+              title={cur ? '当前楼层' : `前往 ${f.label ?? f.order + 'F'} ${f.name}`}
+            >
+              <span className="fl">{f.label ?? `${f.order}F`}</span>
+              <span className="fmain">
+                <span className="fname">{f.name}</span>
+                <span className="fcount" title="成员数">
+                  {count != null ? `${count} 人` : '— 人'}
+                </span>
+                {expanded && (
+                  <span className="fsum">
+                    {sum ? (
+                      <>
+                        <Bar value={sum.completion} color={th.accent} h={5} />
+                        <small>{Math.round(sum.completion)}%</small>
+                      </>
+                    ) : (
+                      <small>{summaryError ? '无 building.json' : '读取中…'}</small>
+                    )}
+                  </span>
+                )}
+                {expanded && sum && (
+                  <span className="fdots">
+                    {(Object.keys(sum.counts) as AgentStatus[]).map((k) => (
+                      <i key={k} title={`${STATUS_META[k].label} ${sum.counts[k]}`} style={{ background: STATUS_META[k].color }}>
+                        {sum.counts[k]}
+                      </i>
+                    ))}
+                  </span>
+                )}
+              </span>
+              {cur && loading && <span className="spin" />}
+            </button>
+          )
+        })}
+      </div>
+      <div className="ground" />
+      {expanded && summary && <div className="el-foot">汇总更新于 {fmtHM(summary.updatedAt)}</div>}
+    </nav>
   )
 }

@@ -1,0 +1,102 @@
+{
+  "floor": "class",
+  "updatedAt": "2026-11-14T21:05:00+08:00",
+  "meta": {
+    "mock": true,
+    "note": "示例数据"
+  },
+  "plan": {
+    "date": "2026-11-14",
+    "items": [
+      {
+        "id": "k1",
+        "title": "解决周三教室冲突",
+        "owner": "class-arrangement",
+        "status": "doing",
+        "progress": 45
+      },
+      {
+        "id": "k2",
+        "title": "本周课表导入",
+        "owner": "class-arrangement",
+        "status": "done",
+        "progress": 100
+      },
+      {
+        "id": "k3",
+        "title": "批改作业",
+        "owner": "teacher",
+        "status": "done",
+        "progress": 100
+      },
+      {
+        "id": "k4",
+        "title": "周三课程调整核对",
+        "owner": "teacher",
+        "status": "doing",
+        "progress": 60
+      },
+      {
+        "id": "k5",
+        "title": "准备下周讲义",
+        "owner": "teacher",
+        "status": "todo",
+        "progress": 0
+      }
+    ]
+  },
+  "agents": [
+    {
+      "id": "class-arrangement",
+      "name": "排课",
+      "role": "排课助理",
+      "color": "#f4b400",
+      "desk": 0,
+      "status": "thinking",
+      "currentTask": "解决周三下午的教室冲突",
+      "progress": 45,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:25:00+08:00",
+          "text": "检测到 2 处教室冲突"
+        },
+        {
+          "time": "2026-11-14T19:58:00+08:00",
+          "text": "导入本周课表"
+        }
+      ]
+    },
+    {
+      "id": "teacher",
+      "name": "老师",
+      "role": "教学辅导",
+      "color": "#7c5cff",
+      "desk": 1,
+      "status": "collaborating",
+      "currentTask": "和 排课 核对周三课程调整",
+      "progress": 60,
+      "collaboratingWith": [
+        "class-arrangement"
+      ],
+      "log": [
+        {
+          "time": "2026-11-14T20:35:00+08:00",
+          "text": "开始与 排课 协作：周三课程调整"
+        },
+        {
+          "time": "2026-11-14T20:05:00+08:00",
+          "text": "批改完成 12 份作业"
+        }
+      ]
+    }
+  ],
+  "collaborations": [
+    {
+      "from": "teacher",
+      "to": "class-arrangement",
+      "topic": "周三课程调整",
+      "since": "2026-11-14T20:35:00+08:00"
+    }
+  ]
+}

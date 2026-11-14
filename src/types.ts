@@ -45,6 +45,7 @@ export interface Collaboration {
 }
 
 export interface Snapshot {
+  floor?: string // 可选：该 feed 所属楼层 id（仅作校验/提示）
   updatedAt: string
   meta?: { mock?: boolean; note?: string }
   plan: { date: string; items: PlanItem[] }
@@ -53,3 +54,27 @@ export interface Snapshot {
 }
 
 export type FeedSource = 'live' | 'demo' | 'fallback' | 'loading'
+
+export interface FloorDef {
+  id: string
+  name: string
+  order: number // 楼层号：数字越大越靠上（4 = 4F）
+  feed: string // 该楼层独立的 status.json 地址（相对 floors.json 所在目录或绝对 URL）
+  label?: string // 默认 `${order}F`
+  theme?: string // warm | mint | night | sunset，默认按顺序轮换
+  default?: boolean // 默认进入的楼层 / 新 bot 默认归属
+  note?: string
+}
+
+export interface BuildingFloorSummary {
+  id: string
+  completion: number // 0-100
+  agents: number
+  counts: Partial<Record<AgentStatus, number>>
+  updatedAt?: string
+}
+
+export interface BuildingSummary {
+  updatedAt: string
+  floors: BuildingFloorSummary[]
+}

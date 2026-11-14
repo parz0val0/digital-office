@@ -1,48 +1,82 @@
 import * as THREE from 'three'
 
-export const ROOM = { w: 20, d: 14, wallH: 4.2 } // x ∈ [-10,10], z ∈ [-7,7]
-export const ROW1_Z = -4.6
-export const ROW2_Z = -0.9
-export const TABLE = { x: 0, z: 4.2, w: 9, d: 2.2 }
 export const SEAT_YAW = 0.5 // 略微转向镜头，让脸更容易被看到
 export const DESK_YAW = SEAT_YAW
-export const MAX_DESKS = 12
+export const DESK_SEAT_DZ = -0.8
+const WALL_H = 4.8
 
-export function deskPos(slot: number): { x: number; z: number } {
-  const s = ((slot % MAX_DESKS) + MAX_DESKS) % MAX_DESKS
-  if (s < 5) return { x: -7.5 + 3 * s, z: ROW1_Z }
-  if (s < 11) return { x: -7.5 + 3 * (s - 5), z: ROW2_Z }
-  return { x: 7.5, z: ROW1_Z }
+export interface Layout {
+  n: number
+  perRow: number
+  rows: number
+  room: { w: number; d: number; wallH: number }
+  table: { x: number; z: number; w: number; d: number }
+  sps: number // 会议桌每侧座位数
+  aisleZ: number
+  deskPos(slot: number): { x: number; z: number }
+  seatPos(seat: number): { x: number; z: number; yaw: number }
+  buildRoute(deskSlot: number, seat: number): { route: Route; deskYaw: number; seatYaw: number }
 }
 
-/** 给每个 agent 分配不冲突的工位 */
+/** 按成员数生成楼层布局：成员少 → 房间小、工位少 */
+export function makeLayout(count: number): Layout {
+  const n = Math.max(1, Math.min(count, 24))
+  const perRow = n <= 5 ? n : Math.min(6, Math.ceil(n / 2))
+  const rows = Math.ceil(n / perRow)
+  const w = Math.max(12, perRow * 3 + 2.5)
+  const d = 10.3 + (rows - 1) * 3.7
+  const x0 = -((perRow - 1) * 3) / 2
+  const row0Z = -d / 2 + 2.4
+  const lastRowZ = row0Z + (rows - 1) * 3.7
+  const sps = Math.max(2, Math.ceil(n / 2))
+  const tableW = Math.max(5, (sps - 1) * 1.4 + 2)
+  const table = { x: 0, z: lastRowZ + 5.1, w: tableW, d: 2.2 }
+  const aisleZ = lastRowZ + 2.1
+
+  const deskPos = (slot: number) => {
+    const s = Math.max(0, Math.min(slot, n - 1))
+    return { x: x0 + 3 * (s % perRow), z: row0Z + 3.7 * Math.floor(s / perRow) }
+  }
+  const seatPos = (seat: number) => {
+    const s = Math.max(0, Math.min(seat, sps * 2 - 1))
+    const sx = (i: number) => -((sps - 1) * 1.4) / 2 + 1.4 * i
+    if (s < sps) return { x: sx(s), z: table.z - 1.8, yaw: SEAT_YAW }
+    return { x: sx(s - sps), z: table.z + 1.8, yaw: Math.PI - 0.3 }
+  }
+  const buildRoute = (deskSlot: number, seat: number) => {
+    const dp = deskPos(deskSlot)
+    const sp = seatPos(seat)
+    const gx = dp.x + 1.5
+    const p: THREE.Vector3[] = [
+      new THREE.Vector3(dp.x, 0, dp.z + DESK_SEAT_DZ),
+      new THREE.Vector3(gx, 0, dp.z + DESK_SEAT_DZ),
+      new THREE.Vector3(gx, 0, aisleZ),
+    ]
+    if (sp.z < table.z) {
+      p.push(new THREE.Vector3(sp.x, 0, aisleZ))
+      p.push(new THREE.Vector3(sp.x, 0, sp.z))
+    } else {
+      const side = sp.x >= 0 ? 1 : -1
+      const sx = side * (table.w / 2 + 0.9)
+      p.push(new THREE.Vector3(sx, 0, aisleZ))
+      p.push(new THREE.Vector3(sx, 0, sp.z - 0.2))
+      p.push(new THREE.Vector3(sp.x, 0, sp.z - 0.2))
+      p.push(new THREE.Vector3(sp.x, 0, sp.z))
+    }
+    return { route: new Route(p), deskYaw: DESK_YAW, seatYaw: sp.yaw }
+  }
+  return { n, perRow, rows, room: { w, d, wallH: WALL_H }, table, sps, aisleZ, deskPos, seatPos, buildRoute }
+}
+
+/** 给每个 agent 分配紧凑的工位 0..n-1（按 desk 字段排序，冲突/越界自动顺延） */
 export function assignDesks(agents: { id: string; desk: number }[]): Record<string, number> {
-  const used = new Set<number>()
+  const order = agents
+    .map((a, i) => ({ id: a.id, desk: Number.isFinite(a.desk) ? a.desk : i, i }))
+    .sort((a, b) => a.desk - b.desk || a.i - b.i)
   const out: Record<string, number> = {}
-  const rest: string[] = []
-  for (const a of agents) {
-    const s = ((a.desk % MAX_DESKS) + MAX_DESKS) % MAX_DESKS
-    if (!used.has(s)) {
-      used.add(s)
-      out[a.id] = s
-    } else rest.push(a.id)
-  }
-  for (const id of rest) {
-    let s = 0
-    while (used.has(s) && s < MAX_DESKS) s++
-    used.add(s)
-    out[id] = s % MAX_DESKS
-  }
+  order.forEach((o, k) => (out[o.id] = k))
   return out
 }
-
-export function seatPos(seat: number): { x: number; z: number; yaw: number } {
-  const s = ((seat % 12) + 12) % 12
-  if (s < 6) return { x: -3.5 + 1.4 * s, z: TABLE.z - 1.8, yaw: SEAT_YAW }
-  return { x: -3.5 + 1.4 * (s - 6), z: TABLE.z + 1.8, yaw: Math.PI - 0.3 }
-}
-
-export const DESK_SEAT_DZ = -0.8
 
 export class Route {
   pts: THREE.Vector3[]
@@ -67,29 +101,5 @@ export class Route {
   }
 }
 
-/** 从工位走到会议桌座位的折线路径（穿过工位之间的过道） */
-export function buildRoute(deskSlot: number, seat: number): { route: Route; deskYaw: number; seatYaw: number } {
-  const d = deskPos(deskSlot)
-  const s = seatPos(seat)
-  const gx = d.x + 1.5
-  const p: THREE.Vector3[] = [
-    new THREE.Vector3(d.x, 0, d.z + DESK_SEAT_DZ),
-    new THREE.Vector3(gx, 0, d.z + DESK_SEAT_DZ),
-    new THREE.Vector3(gx, 0, 1.2),
-  ]
-  if (s.z < TABLE.z) {
-    p.push(new THREE.Vector3(s.x, 0, 1.2))
-    p.push(new THREE.Vector3(s.x, 0, s.z))
-  } else {
-    const side = s.x >= 0 ? 1 : -1
-    const sx = side * 5.4
-    p.push(new THREE.Vector3(sx, 0, 1.2))
-    p.push(new THREE.Vector3(sx, 0, s.z - 0.2))
-    p.push(new THREE.Vector3(s.x, 0, s.z - 0.2))
-    p.push(new THREE.Vector3(s.x, 0, s.z))
-  }
-  return { route: new Route(p), deskYaw: DESK_YAW, seatYaw: s.yaw }
-}
-
-// 公共位置注册表：角色每帧写入头顶世界坐标，协作连线读取
+// 公共位置注册表：角色每帧写入头顶世界坐标，协作连线读取（key = agent.id，需在大楼内唯一）
 export const poseRegistry = new Map<string, THREE.Vector3>()
