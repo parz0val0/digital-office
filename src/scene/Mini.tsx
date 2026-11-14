@@ -2,13 +2,13 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { STATUS_META } from '../meta'
-import type { AgentStatus, BuildingFloorSummary, BuildingMember, BuildingRoamer } from '../types'
+import type { AgentStatus, BuildingMember, BuildingRoamer } from '../types'
 import { Accessory, ACCESSORY, FALLBACK_ACC, lerpColor, Mat } from './Character'
-import { Box, Chair, Desk, Laptop, MeetingTable, Plant, Room, Sofa } from './Furniture'
+import { Chair, Desk, Laptop, MeetingTable, Plant, Room, Sofa } from './Furniture'
+import { Facade, FLOOR_H } from './Exterior'
 import { assignDesks, DESK_YAW, makeLayout } from './layout'
 import type { Theme } from './themes'
 
-const MINI_WALL = 1.5
 
 /** 总览里的小 bot：胖胖的圆角小人 + 头顶状态色圆点（颜色 = 状态） */
 function MiniBot({ id, color, status, index, x, z, yaw, lift = 0 }: { id: string; color: string; status: AgentStatus; index: number; x: number; z: number; yaw: number; lift?: number }) {
@@ -35,13 +35,13 @@ function MiniBot({ id, color, status, index, x, z, yaw, lift = 0 }: { id: string
     if (p) {
       const pulse = status === 'waiting' || status === 'error' ? 1 + Math.sin(t * 5) * 0.22 : 1
       p.scale.setScalar(pulse)
-      p.position.y = 2.95 + (off ? 0 : Math.sin(t * 2) * 0.05)
+      p.position.y = 3.55 + (off ? 0 : Math.sin(t * 2) * 0.05)
     }
     if (!off) g.children[0].position.y = Math.max(0, Math.sin(t * (status === 'working' ? 6 : 2.2))) * 0.03
   })
   return (
     <group ref={root} rotation={[0, yaw, 0]}>
-      <group scale={1.18}>
+      <group scale={1.5}>
         {[-0.17, 0.17].map((sx) => (
           <mesh key={sx} position={[sx, 0.2, 0.02]} castShadow>
             <capsuleGeometry args={[0.1, 0.18, 4, 8]} />
@@ -79,14 +79,14 @@ function MiniBot({ id, color, status, index, x, z, yaw, lift = 0 }: { id: string
         </group>
       </group>
       {/* 状态圆点：发光小球 + 白色描边 */}
-      <group ref={pin} position={[0, 2.95, 0]}>
+      <group ref={pin} position={[0, 3.55, 0]}>
         <mesh>
-          <sphereGeometry args={[0.27, 16, 12]} />
+          <sphereGeometry args={[0.36, 16, 12]} />
           <meshBasicMaterial color="#ffffff" />
         </mesh>
         <mesh>
-          <sphereGeometry args={[0.2, 16, 12]} />
-          <meshBasicMaterial color={meta.color} />
+          <sphereGeometry args={[0.28, 16, 12]} />
+          <meshBasicMaterial color={meta.color} toneMapped={false} />
         </mesh>
       </group>
     </group>
@@ -94,13 +94,10 @@ function MiniBot({ id, color, status, index, x, z, yaw, lift = 0 }: { id: string
 }
 
 export interface MiniFloorProps {
-  label: string
-  name: string
   theme: Theme
   members: BuildingMember[]
   roamers: BuildingRoamer[]
-  info?: BuildingFloorSummary
-  showLabel: boolean
+  facade: boolean // 外壳（玻璃幕墙）是否显示；进入该层时淡出
   hover: boolean
   onOver?: () => void
   onOut?: () => void
@@ -108,42 +105,20 @@ export interface MiniFloorProps {
 }
 
 /** 大楼视图里的一层：地板托盘 + 低矮墙/玻璃护栏 + 桌椅 + 小 bot。不含任何 feed 数据，只用 building.json 里的 members */
-export function MiniFloor({ label, name, theme, members, roamers, info, showLabel, hover, onOver, onOut, onClick }: MiniFloorProps) {
+export function MiniFloor({ theme, members, roamers, facade, hover, onOver, onOut, onClick }: MiniFloorProps) {
   const n = Math.max(members.length, 2)
   const layout = useMemo(() => makeLayout(n), [n])
-  const room = useMemo(() => ({ ...layout.room, wallH: MINI_WALL }), [layout])
+  const room = useMemo(() => ({ ...layout.room, wallH: FLOOR_H - 0.4 }), [layout])
   const desks = useMemo(() => assignDesks(members.map((m, i) => ({ id: m.id, desk: m.desk ?? i }))), [members.map((m) => m.id + m.desk).join()])
   const { w, d } = room
-  const pct = Math.round(info?.completion ?? 0)
-  const rim = useRef<THREE.Mesh>(null!)
-  useFrame(({ clock }) => {
-    if (rim.current) (rim.current.material as THREE.MeshBasicMaterial).opacity = hover ? 0.75 + Math.sin(clock.elapsedTime * 5) * 0.2 : 0
-  })
-
   return (
     <group
       onPointerOver={onOver ? (e) => (e.stopPropagation(), onOver()) : undefined}
       onPointerOut={onOut ? (e) => (e.stopPropagation(), onOut()) : undefined}
       onClick={onClick ? (e) => (e.stopPropagation(), onClick()) : undefined}
     >
-      {/* 悬停高亮光边 */}
-      <mesh ref={rim} position={[0, -0.9, 0]}>
-        <boxGeometry args={[w + 2.0, 0.5, d + 2.0]} />
-        <meshBasicMaterial color={theme.accent} transparent opacity={0} depthWrite={false} />
-      </mesh>
-      <Room room={room} theme={theme} />
-      {/* 前、右两侧：玻璃护栏 */}
-      {[
-        { p: [0, 0.3, d / 2 + 0.02] as [number, number, number], s: [w + 0.2, 0.6, 0.06] as [number, number, number] },
-        { p: [w / 2 + 0.02, 0.3, 0] as [number, number, number], s: [0.06, 0.6, d] as [number, number, number] },
-      ].map((g, i) => (
-        <mesh key={i} position={g.p}>
-          <boxGeometry args={g.s} />
-          <meshStandardMaterial color="#d6efff" transparent opacity={0.28} roughness={0.1} depthWrite={false} />
-        </mesh>
-      ))}
-      <Box p={[0, 0.62, d / 2 + 0.02]} s={[w + 0.2, 0.06, 0.1]} c={theme.accent} r={0.02} shadow={false} />
-      <Box p={[w / 2 + 0.02, 0.62, 0]} s={[0.1, 0.06, d]} c={theme.accent} r={0.02} shadow={false} />
+      <Room room={room} theme={theme} noBase />
+      <Facade w={w} d={d} accent={theme.accent} show={facade} hover={hover} lit={members.length > 0} />
 
       <Plant x={-w / 2 + 0.9} z={-d / 2 + 0.8} s={0.9} />
       <Plant x={w / 2 - 0.8} z={layout.aisleZ + 0.9} s={0.95} c="#3f9d5d" />

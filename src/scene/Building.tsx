@@ -1,19 +1,25 @@
-import { OrbitControls, OrthographicCamera, RoundedBox } from '@react-three/drei'
+import { Environment, Lightformer, OrbitControls, OrthographicCamera } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { ToneMappingMode } from 'postprocessing'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
 import type { BuildingSummary, FloorDef, Snapshot } from '../types'
+import { FLOOR_H, Ground, PITCH, RoofDeck } from './Exterior'
 import { makeLayout } from './layout'
 import { MiniFloor } from './Mini'
 import { fitFor, FloorContent } from './Scene'
 import { themeFor } from './themes'
 
-/** 楼层间距（爆炸式展开：每层是一块悬浮托盘，才能同时看清每层里的小人） */
-export const PITCH = 10.5
 const LIFT = 34 // 进入某层时，上面的楼层向上 / 下面的楼层向下 移开的距离
 const CAM = 15
+const EL_FLOOR = Math.atan(1 / Math.SQRT2) // 35.26°：楼层内部的等距视角
+const EL_BUILDING = 0.42 // ≈24°：看大楼时略低，能透过玻璃幕墙看到楼里的小人
 const T_IN = 1.7 // 进入楼层的镜头时长（秒）
 const T_OUT = 1.5 // 退出楼层的镜头时长
+const DT_MAX = new URLSearchParams(location.search).get('fast') === '1' ? 1 : 0.05 // ?fast=1：截图/测试用，补间不受帧率限制
+const AO_BUILDING = Number(new URLSearchParams(location.search).get('aob') ?? 0.5)
+const AO_FLOOR = 2.4
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
 
 type Size = { width: number; height: number }
@@ -27,12 +33,13 @@ function buildingFit(dims: Dims[], size: Size) {
   const maxW = Math.max(...dims.map((d) => d.w))
   const maxD = Math.max(...dims.map((d) => d.d))
   const n = dims.length
-  const wProj = (maxW + maxD) * 0.7071 + 16 // 右侧留给楼层标签
-  const hProj = (maxW + maxD) * 0.408 + (n - 1) * PITCH * 0.816 + 15
+  const wProj = (maxW + maxD) * 0.7071 + 15 // 右侧留给楼层标签
+  const hProj = (maxW + maxD) * 0.7071 * Math.sin(EL_BUILDING) + n * PITCH * Math.cos(EL_BUILDING) + 14
   return size.width < 600 ? size.width / (wProj * 0.9) : Math.min(size.width / wProj, size.height / hProj)
 }
 
 interface Want {
+  el: number
   y: number
   x: number
   z: number
@@ -46,7 +53,7 @@ function Rig({ want, focusKey, resetKey, onZoomRatio, floorFit }: { want: Want; 
   wantRef.current = want
   const fitRef = useRef(floorFit)
   fitRef.current = floorFit
-  const tw = useRef<{ t: number; dur: number; from: { x: number; y: number; z: number; zoom: number } } | null>(null)
+  const tw = useRef<{ t: number; dur: number; from: { x: number; y: number; z: number; zoom: number; el: number; az: number; R: number } } | null>(null)
   const cur = useRef({ y: want.y, x: want.x, z: want.z })
   const near = useRef(false)
   const first = useRef(true)
@@ -59,7 +66,8 @@ function Rig({ want, focusKey, resetKey, onZoomRatio, floorFit }: { want: Want; 
     if (!c || !ctl) return
     const w = wantRef.current
     cur.current = { y: w.y, x: w.x, z: w.z }
-    c.position.set(w.x + CAM, w.y + CAM, w.z + CAM)
+    const R = CAM * Math.sqrt(3) // ≈ 26
+    c.position.set(w.x + R * Math.cos(w.el) * Math.sin(Math.PI / 4), w.y + R * Math.sin(w.el), w.z + R * Math.cos(w.el) * Math.cos(Math.PI / 4))
     ctl.target.set(w.x, w.y, w.z)
     c.zoom = w.zoom
     c.updateProjectionMatrix()
@@ -78,8 +86,10 @@ function Rig({ want, focusKey, resetKey, onZoomRatio, floorFit }: { want: Want; 
     const focusChanged = lastKey.current !== focusKey
     const dur = focusChanged ? (focusKey ? T_IN : T_OUT) : 0.6
     lastKey.current = focusKey
-    tw.current = { t: 0, dur, from: { x: cur.current.x, y: cur.current.y, z: cur.current.z, zoom: c.zoom } }
-  }, [focusKey, Math.round(want.zoom * 20), Math.round(want.y * 10)])
+    const off = c.position.clone().sub(new THREE.Vector3(cur.current.x, cur.current.y, cur.current.z))
+    const R = off.length()
+    tw.current = { t: 0, dur, from: { x: cur.current.x, y: cur.current.y, z: cur.current.z, zoom: c.zoom, el: Math.asin(off.y / R), az: Math.atan2(off.x, off.z), R } }
+  }, [focusKey, Math.round(want.zoom * 20), Math.round(want.y * 10), Math.round(want.el * 50)])
 
   useFrame((_, dt) => {
     const c = cam.current
@@ -88,16 +98,15 @@ function Rig({ want, focusKey, resetKey, onZoomRatio, floorFit }: { want: Want; 
     const w = wantRef.current
     const a = tw.current
     if (a) {
-      a.t = Math.min(1, a.t + Math.min(dt, 0.05) / a.dur)
+      a.t = Math.min(1, a.t + Math.min(dt, DT_MAX) / a.dur)
       const e = ease(a.t)
       const nx = a.from.x + (w.x - a.from.x) * e
       const ny = a.from.y + (w.y - a.from.y) * e
       const nz = a.from.z + (w.z - a.from.z) * e
       // 缩放按对数插值，视觉上匀速
       const nzoom = a.from.zoom * Math.pow(w.zoom / a.from.zoom, e)
-      c.position.x += nx - cur.current.x
-      c.position.y += ny - cur.current.y
-      c.position.z += nz - cur.current.z
+      const el = a.from.el + (w.el - a.from.el) * e
+      c.position.set(nx + a.from.R * Math.cos(el) * Math.sin(a.from.az), ny + a.from.R * Math.sin(el), nz + a.from.R * Math.cos(el) * Math.cos(a.from.az))
       ctl.target.set(nx, ny, nz)
       cur.current = { y: ny, x: nx, z: nz }
       c.zoom = nzoom
@@ -113,7 +122,7 @@ function Rig({ want, focusKey, resetKey, onZoomRatio, floorFit }: { want: Want; 
 
   return (
     <>
-      <OrthographicCamera ref={cam} makeDefault position={[want.x + CAM, want.y + CAM, want.z + CAM]} zoom={want.zoom} near={-120} far={260} />
+      <OrthographicCamera ref={cam} makeDefault position={[want.x + 15, want.y + 15, want.z + 15]} zoom={want.zoom} near={-120} far={260} />
       <OrbitControls
         ref={controls}
         makeDefault
@@ -167,7 +176,7 @@ function GrowIn({ closing, onClosed, children }: { closing: boolean; onClosed: (
   }, [closing])
   useFrame((_, dt) => {
     if (!g.current) return
-    const d = Math.min(dt, 0.05)
+    const d = Math.min(dt, DT_MAX)
     t.current = closing ? Math.max(0, t.current - d / 0.8) : Math.min(1, t.current + d / 1.0)
     g.current.scale.y = 0.2 + 0.8 * ease(t.current)
     if (closing && t.current <= 0 && !done.current) {
@@ -182,90 +191,21 @@ function GrowIn({ closing, onClosed, children }: { closing: boolean; onClosed: (
   )
 }
 
-/** 上层托盘下方的透明立柱：落在下一层的墙顶，让悬浮的楼层读起来是“一栋楼” */
-function Pillars({ w, d, color, show }: { w: number; d: number; color: string; show: boolean }) {
-  const mats = useRef<THREE.MeshStandardMaterial[]>([])
-  const o = useRef(1)
-  const h = PITCH - 1.5 - 0.85
-  useFrame((_, dt) => {
-    o.current += ((show ? 1 : 0) - o.current) * (1 - Math.exp(-Math.min(dt, 0.05) * 6))
-    mats.current.forEach((m) => m && (m.opacity = 0.55 * o.current))
-  })
-  const pts: [number, number][] = [
-    [-w / 2 - 0.1, -d / 2 - 0.1],
-    [w / 2 + 0.1, -d / 2 - 0.1],
-    [-w / 2 - 0.1, d / 2 + 0.1],
-  ]
-  return (
-    <group>
-      {pts.map(([x, z], i) => (
-        <mesh key={i} position={[x, -0.85 - h / 2, z]}>
-          <cylinderGeometry args={[0.13, 0.13, h, 10]} />
-          <meshStandardMaterial ref={(m) => (mats.current[i] = m!)} color={color} transparent opacity={0.55} roughness={0.2} depthWrite={false} />
-        </mesh>
-      ))}
-    </group>
-  )
-}
-
-/** 底座：草地广场 + 小树，随最底层一起移动 */
-function Plaza({ w, d }: { w: number; d: number }) {
-  const W = w + 9
-  const D = d + 9
-  const tree = (x: number, z: number, s = 1) => (
-    <group key={`${x},${z}`} position={[x, -1.2, z]} scale={s}>
-      <mesh position={[0, 0.5, 0]} castShadow>
-        <cylinderGeometry args={[0.18, 0.24, 1, 8]} />
-        <meshStandardMaterial color="#9b6b43" />
-      </mesh>
-      <mesh position={[0, 1.7, 0]} castShadow>
-        <coneGeometry args={[1.0, 1.9, 8]} />
-        <meshStandardMaterial color="#58b368" roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 2.6, 0]} castShadow>
-        <coneGeometry args={[0.72, 1.5, 8]} />
-        <meshStandardMaterial color="#6cc47a" roughness={0.8} />
-      </mesh>
-    </group>
-  )
-  return (
-    <group>
-      <RoundedBox args={[W, 0.7, D]} radius={0.5} smoothness={3} position={[0, -1.55, 0]} receiveShadow>
-        <meshStandardMaterial color="#cfe9b4" roughness={0.95} />
-      </RoundedBox>
-      <RoundedBox args={[W - 1.2, 0.2, D - 1.2]} radius={0.3} smoothness={3} position={[0, -1.18, 0]} receiveShadow>
-        <meshStandardMaterial color="#bfe0a2" roughness={0.95} />
-      </RoundedBox>
-      {/* 门前小路 */}
-      <mesh position={[w / 2 + 3.4, -1.06, d / 2 + 3.4]} rotation={[-Math.PI / 2, 0, Math.PI / 4]} receiveShadow>
-        <planeGeometry args={[2.2, 9]} />
-        <meshStandardMaterial color="#f1e4c8" roughness={0.9} />
-      </mesh>
-      {tree(-W / 2 + 1.8, -D / 2 + 1.8, 1.1)}
-      {tree(-W / 2 + 1.6, D / 2 - 2.0, 0.9)}
-      {tree(W / 2 - 2.0, D / 2 - 1.6, 1.0)}
-      {tree(-W / 2 + 4.2, D / 2 - 1.6, 0.75)}
-    </group>
-  )
-}
-
 interface SlotProps {
-  index: number // 0 = 最底层
+  idx: number // 用于和焦点楼层比较的序号（屋面 = 楼层号 + 0.5：它是这一层的“天花板”，进入这一层时跟着上面的楼层一起升走）
   focusIdx: number | null
-  hover: boolean
+  baseY: number
   pos: [number, number] // 该层在平面上的偏移（上层与底层后左角对齐）
-  reg: (g: THREE.Group | null) => void
+  reg?: (g: THREE.Group | null) => void
   children: ReactNode
 }
 
-function FloorSlot({ index, focusIdx, hover, pos, reg, children }: SlotProps) {
+function FloorSlot({ idx, focusIdx, baseY, pos, reg, children }: SlotProps) {
   const g = useRef<THREE.Group>(null!)
   const off = useRef(0)
-  const hov = useRef(0)
   const tw = useRef<{ t: number; dur: number; from: number } | null>(null)
   const prev = useRef<number | null | undefined>(undefined)
-  const base = index * PITCH
-  const target = focusIdx == null ? 0 : index > focusIdx ? LIFT : index < focusIdx ? -LIFT : 0
+  const target = focusIdx == null ? 0 : idx > focusIdx ? LIFT : idx < focusIdx ? -LIFT : 0
   const targetRef = useRef(target)
   targetRef.current = target
   useEffect(() => {
@@ -279,16 +219,15 @@ function FloorSlot({ index, focusIdx, hover, pos, reg, children }: SlotProps) {
     tw.current = { t: 0, dur: focusIdx != null ? (entering ? T_IN : 1.2) : T_OUT, from: off.current }
   }, [focusIdx])
   useFrame((_, dt) => {
-    const d = Math.min(dt, 0.05)
+    const d = Math.min(dt, DT_MAX)
     const a = tw.current
     if (a) {
       a.t = Math.min(1, a.t + d / a.dur)
       off.current = a.from + (targetRef.current - a.from) * ease(a.t)
       if (a.t >= 1) tw.current = null
     }
-    hov.current += ((hover ? 0.7 : 0) - hov.current) * (1 - Math.exp(-d * 9))
     if (g.current) {
-      g.current.position.y = base + off.current + hov.current
+      g.current.position.y = baseY + off.current
       g.current.visible = !(Math.abs(off.current) > LIFT * 0.97 && !tw.current)
     }
   })
@@ -296,13 +235,58 @@ function FloorSlot({ index, focusIdx, hover, pos, reg, children }: SlotProps) {
     <group
       ref={(el) => {
         g.current = el!
-        reg(el)
+        reg?.(el)
       }}
-      position={[pos[0], base, pos[1]]}
+      position={[pos[0], baseY, pos[1]]}
     >
       {children}
     </group>
   )
+}
+
+/** 天空渐变背景：顶部偏冷的浅蓝灰 → 地平线暖奶油色 */
+function Backdrop() {
+  const { scene } = useThree()
+  useEffect(() => {
+    const c = document.createElement('canvas')
+    c.width = 4
+    c.height = 256
+    const g = c.getContext('2d')!
+    const gr = g.createLinearGradient(0, 0, 0, 256)
+    gr.addColorStop(0, '#cfdeec')
+    gr.addColorStop(0.55, '#ece6dd')
+    gr.addColorStop(1, '#f6e6d2')
+    g.fillStyle = gr
+    g.fillRect(0, 0, 4, 256)
+    const t = new THREE.CanvasTexture(c)
+    t.colorSpace = THREE.SRGBColorSpace
+    const prev = scene.background
+    scene.background = t
+    return () => {
+      scene.background = prev
+      t.dispose()
+    }
+  }, [scene])
+  return null
+}
+
+/** 帧率监测：持续偏低就自动降级到 low 画质 */
+function PerfWatch({ onLow }: { onLow: () => void }) {
+  const acc = useRef({ t: 0, n: 0, time: 0 })
+  useFrame((_, dt) => {
+    const a = acc.current
+    a.time += dt
+    if (a.time < 4) return
+    a.t += dt
+    a.n++
+    if (a.n >= 90) {
+      if (a.t / a.n > 1 / 22) onLow()
+      a.t = 0
+      a.n = 0
+      a.time = 0
+    }
+  })
+  return null
 }
 
 export interface BuildingSceneProps {
@@ -317,6 +301,8 @@ export interface BuildingSceneProps {
   onSelect: (id: string | null) => void
   onHoverAgent: (id: string | null) => void
   resetKey: number
+  quality: 'high' | 'low'
+  onLowFps: () => void
 }
 
 interface Internal {
@@ -350,8 +336,8 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
   const posOf = (i: number): [number, number] => [-(maxW - dims[i].w) / 2, -(maxD - dims[i].d) / 2]
   const want: Want =
     focusIdx != null && focusIdx >= 0
-      ? { x: posOf(focusIdx)[0], z: posOf(focusIdx)[1] + 0.3, y: focusIdx * PITCH + 1.1, zoom: fOf(focusIdx) }
-      : { x: 2.6, z: -2.6, y: ((N - 1) * PITCH) / 2 + 3.0, zoom: bFit }
+      ? { x: posOf(focusIdx)[0], z: posOf(focusIdx)[1] + 0.3, y: focusIdx * PITCH + 1.1, zoom: fOf(focusIdx), el: EL_FLOOR }
+      : { x: 3.5, z: -3.5, y: (N * PITCH) / 2 + 9.8, zoom: bFit, el: EL_BUILDING }
   const floorFit = lastIdx >= 0 ? fOf(lastIdx) : bFit
   const dataFor = detail?.floorId ?? null
   // 镜头接近目标楼层且数据到位 → 切到详情；楼层不再是焦点时先“收起”再换回小模型
@@ -360,13 +346,19 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
   }, [near, focusId, dataFor, detailId])
   const closing = detailId != null && detailId !== focusId
 
+  const ao = useRef<any>(null)
+  const aoI = useRef(AO_FLOOR)
   const projVec = useMemo(() => new THREE.Vector3(), [])
-  useFrame(() => {
+  useFrame((_, dt) => {
+    // 看整栋楼时 AO 轻一些（否则楼板下方的玻璃里会被压暗），进入楼层后加强
+    aoI.current += ((focusId == null ? AO_BUILDING : AO_FLOOR) - aoI.current) * (1 - Math.exp(-Math.min(dt, DT_MAX) * 3))
+    const cfg = ao.current?.configuration
+    if (cfg) cfg.intensity = aoI.current
     ordered.forEach((f, i) => {
       const el = labelEls.current[f.id]
       const g = slots.current[f.id]
       if (!el || !g) return
-      projVec.set(dims[i].w / 2 + 0.9, 0.2, -dims[i].d / 2 - 0.1)
+      projVec.set(dims[i].w / 2 + 1.6, FLOOR_H * 0.5, -dims[i].d / 2 - 0.1)
       g.localToWorld(projVec)
       projVec.project(camera)
       el.style.transform = `translate3d(${((projVec.x * 0.5 + 0.5) * size.width).toFixed(1)}px, ${((-projVec.y * 0.5 + 0.5) * size.height).toFixed(1)}px, 0)`
@@ -376,56 +368,79 @@ function Scene3D({ slots, labelEls, ...p }: BuildingSceneProps & Internal) {
   return (
     <>
       <Rig want={want} focusKey={focusId ?? ''} resetKey={p.resetKey} onZoomRatio={(r) => setNear(r > 0)} floorFit={floorFit} />
-      <ambientLight intensity={0.95} />
-      <hemisphereLight args={['#fff7e8', '#e8c9a0', 0.9]} />
+      <Backdrop />
+      <ambientLight intensity={0.28} />
+      <hemisphereLight args={['#dfeaf5', '#eadcc6', 0.95]} />
       <directionalLight
-        position={[9, 22, 8]}
-        intensity={2.1}
+        position={[14, 26, 11]}
+        color="#fff0da"
+        intensity={2.5}
         castShadow
-        shadow-mapSize={[4096, 4096]}
-        shadow-camera-left={-30}
-        shadow-camera-right={30}
-        shadow-camera-top={30}
-        shadow-camera-bottom={-30}
+        shadow-mapSize={p.quality === 'high' ? [4096, 4096] : [2048, 2048]}
+        shadow-camera-left={-34}
+        shadow-camera-right={34}
+        shadow-camera-top={34}
+        shadow-camera-bottom={-34}
         shadow-camera-near={1}
-        shadow-camera-far={140}
-        shadow-bias={-0.0004}
-        shadow-radius={4}
+        shadow-camera-far={150}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.03}
+        shadow-radius={5}
       />
-      <directionalLight position={[-8, 8, 10]} intensity={0.5} />
+      <directionalLight position={[-12, 9, -9]} color="#cfe0ff" intensity={0.55} />
+      <Environment resolution={64} environmentIntensity={0.45}>
+        <Lightformer form="rect" intensity={2.2} color="#fff1dc" position={[6, 9, 7]} scale={[12, 8, 1]} onUpdate={(l) => l.lookAt(0, 0, 0)} />
+        <Lightformer form="rect" intensity={1.2} color="#c9dcf5" position={[-8, 5, -4]} scale={[10, 6, 1]} onUpdate={(l) => l.lookAt(0, 0, 0)} />
+        <Lightformer form="ring" intensity={0.8} color="#ffffff" position={[0, 12, 0]} scale={10} onUpdate={(l) => l.lookAt(0, 0, 0)} />
+      </Environment>
       {ordered.map((f, i) => {
         const theme = themeFor(f.theme, i)
         const inf = info(f.id)
         const showDetail = !!detail && detail.floorId === f.id && detailId === f.id
         const roamers = (summary?.roamers ?? []).filter((r) => r.floor === f.id)
         const inBuilding = focusId == null
+        const hov = p.hoverFloor === f.id && inBuilding
+        const ev = {
+          onOver: inBuilding ? () => p.onHoverFloor(f.id) : undefined,
+          onOut: inBuilding ? () => p.onHoverFloor(null) : undefined,
+          onClick: inBuilding ? () => p.onFloorClick(f.id) : undefined,
+        }
+        const top = i === N - 1
         return (
-          <FloorSlot key={f.id} index={i} focusIdx={focusIdx} pos={posOf(i)} reg={(g) => (slots.current[f.id] = g)} hover={p.hoverFloor === f.id && inBuilding}>
-            {i > 0 && <Pillars w={dims[i].w} d={dims[i].d} color={theme.accent} show={inBuilding} />}
-            {i === 0 && <Plaza w={maxW} d={maxD} />}
-            {showDetail ? (
-              <GrowIn key="detail" closing={closing} onClosed={() => setDetailId(null)}>
-                <FloorContent view={{ floor: f, snapshot: detail!.snapshot, theme }} selectedId={p.selectedId} onSelect={p.onSelect} onHover={p.onHoverAgent} interactive />
-              </GrowIn>
-            ) : (
-              <MiniFloor
-                key="mini"
-                label={f.label ?? `${f.order}F`}
-                name={f.name}
-                theme={theme}
-                members={inf?.members ?? []}
-                roamers={roamers}
-                info={inf}
-                showLabel={inBuilding}
-                hover={p.hoverFloor === f.id && inBuilding}
-                onOver={inBuilding ? () => p.onHoverFloor(f.id) : undefined}
-                onOut={inBuilding ? () => p.onHoverFloor(null) : undefined}
-                onClick={inBuilding ? () => p.onFloorClick(f.id) : undefined}
-              />
-            )}
-          </FloorSlot>
+          <group key={f.id}>
+            <FloorSlot idx={i} focusIdx={focusIdx} baseY={i * PITCH} pos={posOf(i)} reg={(g) => (slots.current[f.id] = g)}>
+              {i === 0 && <Ground w={maxW} d={maxD} accent={theme.accent} />}
+              {showDetail ? (
+                <GrowIn key="detail" closing={closing} onClosed={() => setDetailId(null)}>
+                  <FloorContent view={{ floor: f, snapshot: detail!.snapshot, theme }} selectedId={p.selectedId} onSelect={p.onSelect} onHover={p.onHoverAgent} interactive />
+                </GrowIn>
+              ) : (
+                <MiniFloor key="mini" theme={theme} members={inf?.members ?? []} roamers={roamers} facade={inBuilding} hover={hov} {...ev} />
+              )}
+            </FloorSlot>
+            {/* 屋面 / 天花板：进入这一层时随上面的楼层一起升走 */}
+            <FloorSlot idx={i + 0.5} focusIdx={focusIdx} baseY={i * PITCH + FLOOR_H} pos={posOf(i)}>
+              <group
+                onPointerOver={ev.onOver ? (e) => (e.stopPropagation(), ev.onOver!()) : undefined}
+                onPointerOut={ev.onOut ? (e) => (e.stopPropagation(), ev.onOut!()) : undefined}
+                onClick={ev.onClick ? (e) => (e.stopPropagation(), ev.onClick!()) : undefined}
+              >
+                <RoofDeck w={dims[i].w} d={dims[i].d} accent={theme.accent} top={top} next={i + 1 < N ? dims[i + 1] : undefined} />
+              </group>
+            </FloorSlot>
+          </group>
         )
       })}
+      {p.quality === 'high' && (
+        <EffectComposer multisampling={0} enableNormalPass={false}>
+          <N8AO ref={ao} aoRadius={1.4} distanceFalloff={1.2} intensity={2.4} quality="medium" halfRes />
+          <Bloom intensity={0.45} luminanceThreshold={0.92} luminanceSmoothing={0.2} mipmapBlur />
+          <ToneMapping mode={TM} />
+          <Vignette offset={0.32} darkness={0.35} />
+          <SMAA />
+        </EffectComposer>
+      )}
+      <PerfWatch onLow={p.onLowFps} />
     </>
   )
 }
@@ -471,19 +486,26 @@ function FloorLabel({ f, i, n, p, el }: { f: FloorDef; i: number; n: number; p: 
   )
 }
 
-export function BuildingScene(p: BuildingSceneProps) {
+const tmQ = new URLSearchParams(location.search).get('tm')
+const TM = tmQ === 'agx' ? ToneMappingMode.AGX : tmQ === 'aces' ? ToneMappingMode.ACES_FILMIC : ToneMappingMode.NEUTRAL
+const qParam = new URLSearchParams(location.search).get('quality')
+
+export function BuildingScene(p: Omit<BuildingSceneProps, 'quality' | 'onLowFps'>) {
   const slots = useRef<Record<string, THREE.Group | null>>({})
   const labelEls = useRef<Record<string, HTMLDivElement | null>>({})
   const ordered = p.floors
+  // 画质：?quality=high|low 强制；否则默认 high，帧率持续偏低时自动降到 low
+  const [quality, setQuality] = useState<'high' | 'low'>(qParam === 'low' ? 'low' : 'high')
+  const full: BuildingSceneProps = { ...p, quality, onLowFps: () => qParam !== 'high' && quality === 'high' && setQuality('low') }
   return (
     <>
-      <Canvas shadows="percentage" dpr={[1, 2]} flat gl={{ antialias: true, preserveDrawingBuffer: true }} onPointerMissed={() => p.onSelect(null)} style={{ position: 'absolute', inset: 0 }}>
-        <Scene3D {...p} slots={slots} labelEls={labelEls} onDims={() => {}} />
+      <Canvas key={quality} shadows="percentage" dpr={[1, quality === 'high' ? 1.75 : 1.5]} flat={quality === 'high'} gl={{ antialias: quality === 'low', preserveDrawingBuffer: true, powerPreference: 'high-performance' }} onPointerMissed={() => p.onSelect(null)} style={{ position: 'absolute', inset: 0 }}>
+        <Scene3D {...full} slots={slots} labelEls={labelEls} onDims={() => {}} />
       </Canvas>
       {/* 楼层标牌：普通 DOM，位置每帧由 3D 锚点投影得到（不依赖 drei Html） */}
       <div className="flayer">
         {ordered.map((f, idx) => (
-          <FloorLabel key={f.id} f={f} i={ordered.length - 1 - idx} n={ordered.length} p={p} el={(e) => (labelEls.current[f.id] = e)} />
+          <FloorLabel key={f.id} f={f} i={ordered.length - 1 - idx} n={ordered.length} p={full} el={(e) => (labelEls.current[f.id] = e)} />
         ))}
       </div>
     </>

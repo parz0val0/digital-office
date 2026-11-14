@@ -18,10 +18,10 @@
   },
   "B_since_click": {
     "FLOORS_CFG": 0,
-    "BUILDING": 0,
-    "ROAMING": 22,
+    "BUILDING": 1,
+    "ROAMING": 25,
     "lobby": 0,
-    "class": 22,
+    "class": 25,
     "competition": 0
   },
   "C_after_exit_7s": {

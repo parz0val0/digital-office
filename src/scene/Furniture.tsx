@@ -90,17 +90,19 @@ function floorTexture(theme: Theme, room: RoomDims) {
   return t
 }
 
-export function Room({ room, theme }: { room: RoomDims; theme: Theme }) {
+export function Room({ room, theme, noBase = false }: { room: RoomDims; theme: Theme; noBase?: boolean }) {
   const tex = useMemo(() => floorTexture(theme, room), [theme, room.w, room.d])
   useEffect(() => () => tex.dispose(), [tex])
   const { w, d, wallH } = room
   return (
     <group>
       {/* 底座 */}
-      <mesh position={[0, -0.55, 0]} receiveShadow>
-        <boxGeometry args={[w + 1.2, 0.6, d + 1.2]} />
-        <meshStandardMaterial color={theme.slab} roughness={0.9} />
-      </mesh>
+      {!noBase && (
+        <mesh position={[0, -0.55, 0]} receiveShadow>
+          <boxGeometry args={[w + 1.2, 0.6, d + 1.2]} />
+          <meshStandardMaterial color={theme.slab} roughness={0.9} />
+        </mesh>
+      )}
       {/* 地板 */}
       <mesh position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[w, d]} />
