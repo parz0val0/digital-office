@@ -262,16 +262,16 @@ export function Bookshelf({ x, z, rotY = 0 }: { x: number; z: number; rotY?: num
   )
 }
 
-export function Sofa({ x, z, rotY = 0 }: { x: number; z: number; rotY?: number }) {
+export function Sofa({ x, z, rotY = 0, scale = 1, c1 = '#ff9d76', c2 = '#ff8a5c', c3 = '#ffb59a', pillow = '#ffe066' }: { x: number; z: number; rotY?: number; scale?: number; c1?: string; c2?: string; c3?: string; pillow?: string }) {
   return (
-    <group position={[x, 0, z]} rotation={[0, rotY, 0]}>
-      <Box p={[0, 0.3, 0]} s={[2.6, 0.5, 1.1]} c="#ff9d76" r={0.12} />
-      <Box p={[0, 0.78, -0.45]} s={[2.6, 0.8, 0.25]} c="#ff8a5c" r={0.1} />
-      <Box p={[-1.2, 0.6, 0]} s={[0.25, 0.6, 1.1]} c="#ff8a5c" r={0.1} />
-      <Box p={[1.2, 0.6, 0]} s={[0.25, 0.6, 1.1]} c="#ff8a5c" r={0.1} />
-      <Box p={[-0.5, 0.62, 0.05]} s={[0.7, 0.14, 0.8]} c="#ffb59a" r={0.06} />
-      <Box p={[0.5, 0.62, 0.05]} s={[0.7, 0.14, 0.8]} c="#ffb59a" r={0.06} />
-      <Box p={[-0.9, 0.85, -0.1]} s={[0.4, 0.4, 0.14]} c="#ffe066" r={0.06} rot={[-0.3, 0.3, 0.2]} />
+    <group position={[x, 0, z]} rotation={[0, rotY, 0]} scale={scale}>
+      <Box p={[0, 0.3, 0]} s={[2.6, 0.5, 1.1]} c={c1} r={0.12} />
+      <Box p={[0, 0.78, -0.45]} s={[2.6, 0.8, 0.25]} c={c2} r={0.1} />
+      <Box p={[-1.2, 0.6, 0]} s={[0.25, 0.6, 1.1]} c={c2} r={0.1} />
+      <Box p={[1.2, 0.6, 0]} s={[0.25, 0.6, 1.1]} c={c2} r={0.1} />
+      <Box p={[-0.5, 0.62, 0.05]} s={[0.7, 0.14, 0.8]} c={c3} r={0.06} />
+      <Box p={[0.5, 0.62, 0.05]} s={[0.7, 0.14, 0.8]} c={c3} r={0.06} />
+      <Box p={[-0.9, 0.85, -0.1]} s={[0.4, 0.4, 0.14]} c={pillow} r={0.06} rot={[-0.3, 0.3, 0.2]} />
     </group>
   )
 }

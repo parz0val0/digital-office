@@ -24,6 +24,7 @@ import {
   WindowFrame,
 } from './Furniture'
 import { EmptyDesk } from './Mini'
+import { Zones } from './Zones'
 import { assignDesks, DESK_YAW, makeLayout, type Layout } from './layout'
 import type { Theme } from './themes'
 import { Whiteboard } from './Whiteboard'
@@ -78,7 +79,7 @@ export interface FloorProps {
 export function FloorContent({ view, selectedId, onSelect, onHover, interactive, plateN = 0 }: FloorProps) {
   const { floor, snapshot, theme } = view
   const n = snapshot.agents.length
-  const layout = useMemo(() => makeLayout(Math.max(n, 2, plateN)), [n, plateN])
+  const layout = useMemo(() => makeLayout(Math.max(n, 2, plateN), Math.max(n, 1)), [n, plateN])
   const desks = useMemo(() => assignDesks(snapshot.agents), [snapshot.agents.map((a) => a.id + a.desk).join()])
   const everyone = useMemo(() => allAgents(snapshot), [snapshot.agents, snapshot.roamers])
   const links = useMemo(() => collabLinks(snapshot), [snapshot.agents, snapshot.roamers, snapshot.collaborations])
@@ -103,15 +104,9 @@ export function FloorContent({ view, selectedId, onSelect, onHover, interactive,
       {d >= 13 && <WindowFrame x={-w / 2 + 0.02} z={-d / 2 + 6.3} y={2.1} />}
       <Poster x={-w / 2 + 0.05} y={2.3} z={d / 2 - 0.9} rotY={Math.PI / 2} c1="#ffd166" c2="#ef476f" />
       <Bookshelf x={-w / 2 + 0.3} z={d / 2 - 4.7} rotY={Math.PI / 2} />
-      {d >= 13 && <Plant x={-w / 2 + 0.9} z={d / 2 - 2.9} s={1.2} />}
-      <Plant x={-w / 2 + 0.9} z={-d / 2 + 0.8} s={1.0} />
+      {layout.full && d >= 13 && <Plant x={-w / 2 + 0.9} z={d / 2 - 2.9} s={1.2} />}
       <CoffeeStation x={w / 2 - 1.2} z={-d / 2 + 0.6} />
-      <Plant x={w / 2 - 0.8} z={layout.aisleZ + 0.9} s={1.05} c="#3f9d5d" />
-      <Sofa x={-w / 2 + 1.0} z={d / 2 - 1.3} rotY={Math.PI / 2} />
-      <Cyl p={[-w / 2 + 2.5, 0.3, d / 2 - 1.3]} r={0.5} h={0.12} c="#fff1d6" />
-      <Cyl p={[-w / 2 + 2.5, 0.15, d / 2 - 1.3]} r={0.08} h={0.3} c="#c99562" />
-      <Mug x={-w / 2 + 2.5} z={d / 2 - 1.4} c="#ff7a7a" />
-      <Box p={[-w / 2 + 2.5, 0.04, d / 2 - 1.3]} s={[2.2, 0.04, 2.2]} c="#ffd7a8" r={0.02} shadow={false} />
+      <Zones layout={layout} theme={theme} />
 
       <MeetingTable table={layout.table} theme={theme} />
       {Array.from({ length: layout.sps * 2 }).map((_, i) => {

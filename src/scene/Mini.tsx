@@ -4,10 +4,11 @@ import * as THREE from 'three'
 import { STATUS_META } from '../meta'
 import type { AgentStatus, BuildingMember, BuildingRoamer } from '../types'
 import { Accessory, ACCESSORY, FALLBACK_ACC, lerpColor, Mat } from './Character'
-import { Chair, Desk, Laptop, MeetingTable, Plant, Room, Sofa } from './Furniture'
+import { Chair, Desk, Laptop, MeetingTable, Room } from './Furniture'
 import { Facade, FLOOR_H } from './Exterior'
 import { assignDesks, DESK_YAW, makeLayout } from './layout'
 import type { Theme } from './themes'
+import { Zones } from './Zones'
 import { NIGHT } from './tod'
 
 
@@ -121,7 +122,7 @@ export interface MiniFloorProps {
 /** 大楼视图里的一层：地板托盘 + 低矮墙/玻璃护栏 + 桌椅 + 小 bot。不含任何 feed 数据，只用 building.json 里的 members */
 export function MiniFloor({ plateN = 0, theme, members, roamers, facade, hover, onOver, onOut, onClick }: MiniFloorProps) {
   const n = Math.max(members.length, 2, plateN)
-  const layout = useMemo(() => makeLayout(n), [n])
+  const layout = useMemo(() => makeLayout(n, Math.max(members.length, 1)), [n, members.length])
   const room = useMemo(() => ({ ...layout.room, wallH: FLOOR_H - 0.4 }), [layout])
   const desks = useMemo(() => assignDesks(members.map((m, i) => ({ id: m.id, desk: m.desk ?? i }))), [members.map((m) => m.id + m.desk).join()])
   const { w, d } = room
@@ -134,9 +135,7 @@ export function MiniFloor({ plateN = 0, theme, members, roamers, facade, hover, 
       <Room room={room} theme={theme} noBase />
       <Facade w={w} d={d} accent={theme.accent} show={facade} hover={hover} lit={members.length > 0} seed={members.length} />
 
-      <Plant x={-w / 2 + 0.9} z={-d / 2 + 0.8} s={0.9} />
-      <Plant x={w / 2 - 0.8} z={layout.aisleZ + 0.9} s={0.95} c="#3f9d5d" />
-      <Sofa x={-w / 2 + 1.0} z={d / 2 - 1.3} rotY={Math.PI / 2} />
+      <Zones layout={layout} theme={theme} />
       <MeetingTable table={layout.table} theme={theme} />
       {Array.from({ length: layout.sps * 2 }).map((_, i) => {
         const s = layout.seatPos(i)
