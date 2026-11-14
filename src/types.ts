@@ -51,6 +51,16 @@ export interface Snapshot {
   plan: { date: string; items: PlanItem[] }
   agents: Agent[]
   collaborations: Collaboration[]
+  // 以下由前端合并（来自 roaming.json），不属于楼层 feed
+  roamers?: Agent[]
+  roamPlan?: PlanItem[]
+}
+
+export interface RoamerInfo {
+  id: string
+  name: string
+  color: string
+  currentFloor: string
 }
 
 export type FeedSource = 'live' | 'demo' | 'fallback' | 'loading'
@@ -76,5 +86,6 @@ export interface BuildingFloorSummary {
 
 export interface BuildingSummary {
   updatedAt: string
+  roamers?: { id: string; floor: string }[]
   floors: BuildingFloorSummary[]
 }

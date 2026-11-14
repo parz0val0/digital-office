@@ -48,6 +48,24 @@
           }
         }
       }
+    },
+    "roamers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "floor"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "floor": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

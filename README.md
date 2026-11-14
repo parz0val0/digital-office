@@ -1,6 +1,6 @@
 # 数字办公室 · Digital Office
 
-等距 3D 卡通风格的“AI 员工办公室大楼”：**一个分组一层楼**，每层各自的 feed、各自的今日计划与完成度；
+等距 3D 卡通风格的“AI 员工办公室大楼”：**一个分组一层楼**（3F Competition · 2F Class · 1F Lobby），英文界面、任务内容中文；`office` 是可去任意楼层的漫游 bot，每层各自的 feed、各自的今日计划与完成度；
 每个 bot 一个工位和一个小角色，能看到谁在工作 / 思考 / 协作 / 等待确认 / 出错 / 离线，
 以及今日计划完成度。**第一版只做可视化**（不能在里面下指令）。
 
@@ -15,7 +15,7 @@ npx serve dist              # 或：cd dist && python3 -m http.server 4173
 
 打开后：
 - `/`                       读取 `floors.json`，进入默认楼层，只轮询当前楼层的 feed（每 10 秒）
-- `/?floor=trading`         直接进入某一层；侧边“电梯”可切换（↑/↓ 键也行），“总览”查看全楼汇总
+- `/?floor=class`         直接进入某一层；侧边“电梯”可切换（↑/↓ 键也行），“总览”查看全楼汇总
 - 没看的楼层：不请求、不轮询；标签页隐藏时也暂停
 - `/?demo=1`                演示模式，随机切换状态
 - `/?feed=https://…/status.json`   覆盖当前楼层的数据源
@@ -44,6 +44,7 @@ Vite + React 19 + TypeScript + three.js + @react-three/fiber + @react-three/drei
 ```
 public/floors.json        楼层配置（可编辑）
 public/floors/<id>/status.json  每层独立的 feed（示例数据，也是部署后 bot 要写的文件）
+public/roaming.json       漫游 bot（如 office，当前所在楼层 currentFloor）
 public/building.json      大楼总览汇总（脚本自动同步）
 docs/                     数据契约文档 + JSON Schema
 scripts/update-status.mjs bot 自更新脚本

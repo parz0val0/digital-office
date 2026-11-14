@@ -57,6 +57,10 @@
           }
         }
       }
+    },
+    "roaming": {
+      "type": "string",
+      "description": "可选：漫游 bot 文件（roaming.json）的路径"
     }
   }
 }

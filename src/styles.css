@@ -176,8 +176,8 @@ main { flex: 1; display: flex; min-height: 0; }
 
 /* ===== 电梯 / 大楼总览 ===== */
 .floortag { margin-left: 8px; font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--accent); color: #fff; vertical-align: 2px; letter-spacing: 0; }
-.elevator { position: absolute; left: 12px; top: 12px; z-index: 6; width: 160px; background: rgba(255,250,240,.96); border: 2px solid var(--line); border-radius: 16px; padding: 8px 8px 10px; box-shadow: 0 6px 0 rgba(43,36,56,.08); transition: width .25s ease; }
-.elevator.open { width: 236px; }
+.elevator { position: absolute; left: 12px; top: 12px; z-index: 6; width: 188px; background: rgba(255,250,240,.96); border: 2px solid var(--line); border-radius: 16px; padding: 8px 8px 10px; box-shadow: 0 6px 0 rgba(43,36,56,.08); transition: width .25s ease; }
+.elevator.open { width: 250px; }
 .el-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
 .btn.mini { padding: 2px 8px; font-size: 11px; border-radius: 8px; }
 .roof { height: 10px; margin: 0 10px 3px; background: #c7b8a2; clip-path: polygon(0 100%, 12% 0, 88% 0, 100% 100%); border-radius: 3px; }
@@ -206,3 +206,8 @@ main { flex: 1; display: flex; min-height: 0; }
   .flr { flex: none; padding: 4px 8px; }
   .fcount, .fsum, .fdots { display: none; }
 }
+
+.roamtag { font-size: 9px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; color: #fff; background: #ff8a3d; border-radius: 6px; padding: 1px 5px; flex: none; }
+.plate .roamtag { font-size: 8px; padding: 0 4px; }
+.rmark { display: inline-block; margin-left: 5px; font-size: 9px; font-weight: 800; color: #fff; border-radius: 8px; padding: 1px 6px; vertical-align: 1px; }
+.fname { overflow: visible; }

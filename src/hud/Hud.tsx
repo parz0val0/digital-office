@@ -2,18 +2,20 @@ import { useEffect, useState } from 'react'
 import {
   agentName,
   agentPlan,
+  allAgents,
   collabLinks,
   fmtAgo,
   fmtClock,
   fmtHM,
+  fmtLongDate,
   itemProgress,
   overallProgress,
   parseTime,
   PLAN_STATUS_LABEL,
   STATUS_META,
 } from '../meta'
-import type { Agent, AgentStatus, BuildingSummary, FeedSource, FloorDef, Snapshot } from '../types'
 import { themeFor } from '../scene/themes'
+import type { Agent, AgentStatus, BuildingSummary, FeedSource, FloorDef, RoamerInfo, Snapshot } from '../types'
 
 function useNow(ms = 1000) {
   const [n, setN] = useState(Date.now())
@@ -22,14 +24,6 @@ function useNow(ms = 1000) {
     return () => clearInterval(h)
   }, [ms])
   return n
-}
-
-const WEEK = ['日', '一', '二', '三', '四', '五', '六']
-function fmtDate(date: string) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
-  if (!m) return date
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-  return `${m[1]} 年 ${Number(m[2])} 月 ${Number(m[3])} 日 · 周${WEEK[d.getDay()]}`
 }
 
 export function Bar({ value, color, h = 8 }: { value: number; color?: string; h?: number }) {
@@ -49,16 +43,40 @@ export function StatusChip({ status }: { status: AgentStatus }) {
   )
 }
 
-export function TopBar({ s, source, fetchedAt, onReset, floor, floorLabel }: { s: Snapshot; source: FeedSource; fetchedAt: number; onReset: () => void; floor: FloorDef | null; floorLabel: string }) {
+export function TopBar({
+  s,
+  source,
+  fetchedAt,
+  onReset,
+  floor,
+  floorLabel,
+}: {
+  s: Snapshot
+  source: FeedSource
+  fetchedAt: number
+  onReset: () => void
+  floor: FloorDef | null
+  floorLabel: string
+}) {
   const now = useNow()
   const total = overallProgress(s)
   const counts: Partial<Record<AgentStatus, number>> = {}
-  s.agents.forEach((a) => (counts[a.status] = (counts[a.status] ?? 0) + 1))
+  allAgents(s).forEach((a) => (counts[a.status] = (counts[a.status] ?? 0) + 1))
   const upd = parseTime(s.updatedAt)
   const stale = source === 'live' && !s.meta?.mock && upd && now - upd.getTime() > 10 * 60 * 1000
   const doneItems = s.plan.items.filter((i) => i.status === 'done').length
   const srcLabel =
-    source === 'demo' ? '演示模式' : source === 'fallback' ? '未连接该楼层的 status.json' : source === 'loading' ? '加载中…' : s.meta?.mock ? '示例数据' : stale ? '数据可能已过期' : '实时'
+    source === 'demo'
+      ? 'Demo mode'
+      : source === 'fallback'
+        ? 'Feed not reachable'
+        : source === 'loading'
+          ? 'Loading…'
+          : s.meta?.mock
+            ? 'Example data'
+            : stale
+              ? 'Data may be stale'
+              : 'Live'
   const srcCls = source === 'live' && !s.meta?.mock && !stale ? 'live' : stale || source === 'fallback' ? 'warn' : 'demo'
   return (
     <header className="topbar">
@@ -66,22 +84,22 @@ export function TopBar({ s, source, fetchedAt, onReset, floor, floorLabel }: { s
         <span className="logo">🏢</span>
         <div>
           <h1>
-            Jason 的数字办公室
+            Jason's Digital Office
             {floor && (
               <span className="floortag">
                 {floorLabel} {floor.name}
               </span>
             )}
           </h1>
-          <div className="sub">{fmtDate(s.plan.date)}</div>
+          <div className="sub">{fmtLongDate(s.plan.date)}</div>
         </div>
       </div>
       <div className="overall">
         <div className="overall-head">
-          <span>{floor ? `${floor.name} · ` : ''}今日计划完成度</span>
+          <span>{floor ? `${floor.name} · ` : ''}Today's plan</span>
           <b>{total}%</b>
           <em>
-            {doneItems}/{s.plan.items.length} 项已完成
+            {doneItems}/{s.plan.items.length} items done
           </em>
         </div>
         <Bar value={total} h={14} />
@@ -101,25 +119,44 @@ export function TopBar({ s, source, fetchedAt, onReset, floor, floorLabel }: { s
           <i />
           {srcLabel}
         </span>
-        <span className="upd">更新于 {fmtHM(s.updatedAt)}{source === 'live' ? ` · 拉取 ${fmtAgo(new Date(fetchedAt).toISOString(), now)}前` : ''}</span>
-        <button className="btn" onClick={onReset} title="回到默认视角">
-          重置视角
+        <span className="upd">
+          Updated {fmtHM(s.updatedAt)}
+          {source === 'live' ? ` · fetched ${fmtAgo(new Date(fetchedAt).toISOString(), now)} ago` : ''}
+        </span>
+        <button className="btn" onClick={onReset} title="Back to the default camera angle">
+          Reset view
         </button>
       </div>
     </header>
   )
 }
 
-export function MemberList({ s, selectedId, onSelect, hoverId, floorName }: { s: Snapshot; selectedId: string | null; onSelect: (id: string) => void; hoverId: string | null; floorName?: string }) {
+export function MemberList({
+  s,
+  selectedId,
+  onSelect,
+  hoverId,
+  floorName,
+}: {
+  s: Snapshot
+  selectedId: string | null
+  onSelect: (id: string) => void
+  hoverId: string | null
+  floorName?: string
+}) {
+  const roamIds = new Set((s.roamers ?? []).map((r) => r.id))
+  const list = allAgents(s)
   return (
     <aside className="left panel">
-      <h2>{floorName ? `${floorName} · ` : ''}成员任务 <small>{s.agents.length} 位</small></h2>
+      <h2>
+        {floorName ? `${floorName} · ` : ''}Members <small>{list.length}</small>
+      </h2>
       <div className="list">
-        {s.agents.map((a) => {
+        {list.map((a) => {
           const m = STATUS_META[a.status]
           const plan = agentPlan(s, a.id)
           const planDone = plan.filter((p) => p.status === 'done').length
-          const p = a.status === 'offline' ? 0 : a.progress ?? 0
+          const p = a.status === 'offline' ? 0 : (a.progress ?? 0)
           return (
             <button key={a.id} className={`member ${selectedId === a.id ? 'sel' : ''} ${hoverId === a.id ? 'hov' : ''}`} onClick={() => onSelect(a.id)}>
               <span className="avatar" style={{ background: a.status === 'offline' ? '#c4c8ce' : a.color }}>
@@ -129,12 +166,13 @@ export function MemberList({ s, selectedId, onSelect, hoverId, floorName }: { s:
                 <span className="row1">
                   <b>{a.name}</b>
                   <em>{a.role}</em>
+                  {roamIds.has(a.id) && <span className="roamtag">Roaming</span>}
                   <StatusChip status={a.status} />
                 </span>
-                <span className="task">{a.currentTask || (a.status === 'offline' ? '未连接' : '暂无任务')}</span>
+                <span className="task">{a.currentTask || (a.status === 'offline' ? 'Not connected' : 'No task')}</span>
                 <span className="row3">
                   <Bar value={p} color={a.color} h={6} />
-                  <small>{plan.length ? `${planDone}/${plan.length} 项` : `${Math.round(p)}%`}</small>
+                  <small>{plan.length ? `${planDone}/${plan.length}` : `${Math.round(p)}%`}</small>
                 </span>
               </span>
             </button>
@@ -147,33 +185,37 @@ export function MemberList({ s, selectedId, onSelect, hoverId, floorName }: { s:
 
 export function FeedPanel({ s }: { s: Snapshot }) {
   const now = useNow(5000)
+  const everyone = allAgents(s)
   const links = collabLinks(s)
   const active = links.filter((l) => {
-    const a = s.agents.find((x) => x.id === l.a)
-    const b = s.agents.find((x) => x.id === l.b)
+    const a = everyone.find((x) => x.id === l.a)
+    const b = everyone.find((x) => x.id === l.b)
     return a && b && a.status !== 'offline' && b.status !== 'offline'
   })
-  const events = s.agents
+  const events = everyone
     .flatMap((a) => (a.log ?? []).slice(0, 3).map((l) => ({ a, ...l, ts: parseTime(l.time)?.getTime() ?? 0 })))
     .sort((x, y) => y.ts - x.ts)
     .slice(0, 6)
   return (
     <section className="feed panel">
-      <h2>协作动态 <small>{active.length} 组进行中</small></h2>
-      {active.length === 0 && <div className="empty">大家各忙各的，暂时没有协作 ☕</div>}
+      <h2>
+        Collaboration <small>{active.length} active</small>
+      </h2>
+      {active.length === 0 && <div className="empty">Everyone is heads-down — no collaboration right now ☕</div>}
       {active.map((l) => (
         <div className="collab" key={l.a + l.b}>
           <span className="pair">
-            <i style={{ background: s.agents.find((x) => x.id === l.a)?.color }} />
-            <i style={{ background: s.agents.find((x) => x.id === l.b)?.color, marginLeft: -6 }} />
+            <i style={{ background: everyone.find((x) => x.id === l.a)?.color }} />
+            <i style={{ background: everyone.find((x) => x.id === l.b)?.color, marginLeft: -6 }} />
           </span>
           <span className="txt">
-            <b>{agentName(s, l.a)}</b> 正在和 <b>{agentName(s, l.b)}</b> 协作{l.topic ? `：${l.topic}` : ''}
+            <b>{agentName(s, l.a)}</b> is collaborating with <b>{agentName(s, l.b)}</b>
+            {l.topic ? `: ${l.topic}` : ''}
             {l.since && <small> · {fmtAgo(l.since, now)}</small>}
           </span>
         </div>
       ))}
-      <h3>最新动态</h3>
+      <h3>Latest activity</h3>
       <ul className="events">
         {events.map((e, i) => (
           <li key={i}>
@@ -183,12 +225,13 @@ export function FeedPanel({ s }: { s: Snapshot }) {
             </span>
           </li>
         ))}
+        {!events.length && <div className="empty">No activity yet</div>}
       </ul>
     </section>
   )
 }
 
-export function DetailPanel({ s, agent, onClose }: { s: Snapshot; agent: Agent; onClose: () => void }) {
+export function DetailPanel({ s, agent, onClose, roaming }: { s: Snapshot; agent: Agent; onClose: () => void; roaming: boolean }) {
   const m = STATUS_META[agent.status]
   const plan = agentPlan(s, agent.id)
   const partners = collabLinks(s)
@@ -203,23 +246,29 @@ export function DetailPanel({ s, agent, onClose }: { s: Snapshot; agent: Agent; 
         <div className="dtitle">
           <b>{agent.name}</b>
           <em>{agent.role}</em>
+          {roaming && <span className="roamtag">Roaming</span>}
           <StatusChip status={agent.status} />
         </div>
-        <button className="x" onClick={onClose} aria-label="关闭">
+        <button className="x" onClick={onClose} aria-label="Close">
           ✕
         </button>
       </div>
-      <div className="hint">{m.hint}{partners.length ? `（与 ${partners.join('、')}）` : ''}</div>
-      <h3>当前任务</h3>
+      <div className="hint">
+        {m.hint}
+        {partners.length ? ` (with ${partners.join(', ')})` : ''}
+      </div>
+      <h3>Current task</h3>
       <div className="cur">
-        <div className="curtask">{agent.currentTask || '暂无'}</div>
+        <div className="curtask">{agent.currentTask || '—'}</div>
         <div className="row3">
-          <Bar value={agent.status === 'offline' ? 0 : agent.progress ?? 0} color={agent.color} h={10} />
-          <small>{Math.round(agent.status === 'offline' ? 0 : agent.progress ?? 0)}%</small>
+          <Bar value={agent.status === 'offline' ? 0 : (agent.progress ?? 0)} color={agent.color} h={10} />
+          <small>{Math.round(agent.status === 'offline' ? 0 : (agent.progress ?? 0))}%</small>
         </div>
       </div>
-      <h3>今日任务 <small>{plan.length} 项</small></h3>
-      {plan.length === 0 && <div className="empty">今天没有分配计划项</div>}
+      <h3>
+        Today's tasks <small>{plan.length}</small>
+      </h3>
+      {plan.length === 0 && <div className="empty">No plan items today</div>}
       <ul className="plan">
         {plan.map((p) => (
           <li key={p.id} className={p.status}>
@@ -233,7 +282,7 @@ export function DetailPanel({ s, agent, onClose }: { s: Snapshot; agent: Agent; 
           </li>
         ))}
       </ul>
-      <h3>最近活动</h3>
+      <h3>Recent activity</h3>
       <ul className="events log">
         {(agent.log ?? []).slice(0, 12).map((l, i) => (
           <li key={i}>
@@ -241,7 +290,7 @@ export function DetailPanel({ s, agent, onClose }: { s: Snapshot; agent: Agent; 
             <span>{l.text}</span>
           </li>
         ))}
-        {!(agent.log ?? []).length && <div className="empty">暂无记录</div>}
+        {!(agent.log ?? []).length && <div className="empty">No activity yet</div>}
       </ul>
     </section>
   )
@@ -256,13 +305,12 @@ export function Legend() {
           {STATUS_META[k].label}
         </span>
       ))}
-      <span className="tip">拖动旋转 · 滚轮缩放 · 点击角色查看详情</span>
+      <span className="tip">Drag to rotate · Scroll to zoom · Click a bot for details · ↑/↓ change floor</span>
     </div>
   )
 }
 
-
-/** 电梯式楼层选择 + 大楼总览。只有展开（总览）时才读取 building.json。 */
+/** Elevator-style floor selector + building overview. building.json is only read while the overview is open. */
 export function Elevator({
   floors,
   currentId,
@@ -273,6 +321,7 @@ export function Elevator({
   onGo,
   summary,
   summaryError,
+  roamers,
 }: {
   floors: FloorDef[]
   currentId: string
@@ -283,13 +332,14 @@ export function Elevator({
   onGo: (id: string) => void
   summary: BuildingSummary | null
   summaryError: boolean
+  roamers: RoamerInfo[]
 }) {
   return (
-    <nav className={`elevator ${expanded ? 'open' : ''}`} aria-label="楼层选择">
+    <nav className={`elevator ${expanded ? 'open' : ''}`} aria-label="Floor selector">
       <div className="el-head">
-        <b>🛗 大楼</b>
-        <button className="btn mini" onClick={onToggle} aria-pressed={expanded} title="展开后读取 building.json 汇总（不会加载其他楼层的数据）">
-          {expanded ? '收起' : '总览'}
+        <b>🛗 Building</b>
+        <button className="btn mini" onClick={onToggle} aria-pressed={expanded} title="Overview reads building.json only — other floors' feeds stay unloaded">
+          {expanded ? 'Collapse' : 'Overview'}
         </button>
       </div>
       <div className="roof" />
@@ -299,19 +349,27 @@ export function Elevator({
           const sum = summary?.floors.find((x) => x.id === f.id)
           const count = cur && liveCount != null ? liveCount : sum?.agents
           const th = themeFor(f.theme, floors.length - 1 - i)
+          const here = roamers.filter((r) => r.currentFloor === f.id)
           return (
             <button
               key={f.id}
               className={`flr ${cur ? 'cur' : ''}`}
               style={{ ['--a' as any]: th.accent }}
               onClick={() => onGo(f.id)}
-              title={cur ? '当前楼层' : `前往 ${f.label ?? f.order + 'F'} ${f.name}`}
+              title={cur ? 'Current floor' : `Go to ${f.label ?? f.order + 'F'} ${f.name}`}
             >
               <span className="fl">{f.label ?? `${f.order}F`}</span>
               <span className="fmain">
-                <span className="fname">{f.name}</span>
-                <span className="fcount" title="成员数">
-                  {count != null ? `${count} 人` : '— 人'}
+                <span className="fname">
+                  {f.name}
+                  {here.map((r) => (
+                    <span key={r.id} className="rmark" style={{ background: r.color }} title={`${r.name} is on this floor (roaming)`}>
+                      {r.name}
+                    </span>
+                  ))}
+                </span>
+                <span className="fcount" title="Members">
+                  {count != null ? `${count} members` : '— members'}
                 </span>
                 {expanded && (
                   <span className="fsum">
@@ -321,7 +379,7 @@ export function Elevator({
                         <small>{Math.round(sum.completion)}%</small>
                       </>
                     ) : (
-                      <small>{summaryError ? '无 building.json' : '读取中…'}</small>
+                      <small>{summaryError ? 'No building.json' : 'Loading…'}</small>
                     )}
                   </span>
                 )}
@@ -341,7 +399,7 @@ export function Elevator({
         })}
       </div>
       <div className="ground" />
-      {expanded && summary && <div className="el-foot">汇总更新于 {fmtHM(summary.updatedAt)}</div>}
+      {expanded && summary && <div className="el-foot">Summary updated {fmtHM(summary.updatedAt)}</div>}
     </nav>
   )
 }

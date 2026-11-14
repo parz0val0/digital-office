@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-14T21:19:47+08:00",
+  "updatedAt": "2026-11-14T21:36:36+08:00",
   "floors": [
     {
       "id": "competition",
@@ -9,7 +9,7 @@
         "working": 1,
         "thinking": 1
       },
-      "updatedAt": "2026-11-14T21:05:00+08:00"
+      "updatedAt": "2026-11-14T21:35:00+08:00"
     },
     {
       "id": "class",
@@ -19,32 +19,28 @@
         "thinking": 1,
         "collaborating": 1
       },
-      "updatedAt": "2026-11-14T21:05:00+08:00"
-    },
-    {
-      "id": "trading",
-      "completion": 51,
-      "agents": 4,
-      "counts": {
-        "working": 1,
-        "offline": 1,
-        "collaborating": 2
-      },
-      "updatedAt": "2026-11-14T21:05:00+08:00"
+      "updatedAt": "2026-11-14T21:35:00+08:00"
     },
     {
       "id": "lobby",
-      "completion": 49,
-      "agents": 8,
+      "completion": 52,
+      "agents": 11,
       "counts": {
         "working": 2,
         "done": 1,
         "error": 1,
         "waiting": 1,
         "thinking": 1,
-        "collaborating": 2
+        "collaborating": 4,
+        "offline": 1
       },
-      "updatedAt": "2026-11-14T21:05:00+08:00"
+      "updatedAt": "2026-11-14T21:35:00+08:00"
+    }
+  ],
+  "roamers": [
+    {
+      "id": "office",
+      "floor": "lobby"
     }
   ]
 }

@@ -17,7 +17,9 @@
  *   --file <path>        直接指定某个 status.json（覆盖楼层解析；环境变量 STATUS_FILE）
  *   --sync-building      只重建 building.json 汇总（不需要 --id）；每次更新楼层后也会自动同步
  *   --building <path>    building.json 路径（默认与 floors.json 同目录）
- *   --id <agentId>       必填（除非 --sync-building）
+ *   --roamer             新建漫游 bot（不属于固定楼层，可去任何一层；见 public/roaming.json）
+ *   --id <agentId>       必填（除非 --sync-building）。如果 id 是漫游 bot（如 office），
+ *                        则 --floor 的含义是“把它移动到该楼层”（写 roaming.json 的 currentFloor）
  *   --status <s>         working|thinking|collaborating|waiting|done|error|offline
  *   --task <text>        currentTask
  *   --progress <0-100>   当前任务进度
@@ -42,7 +44,7 @@ const PLAN_STATUSES = ['todo', 'doing', 'done', 'blocked']
 
 function parseArgs(argv) {
   const o = { log: [], planItem: [], addPlan: [] }
-  const bool = new Set(['clear-collab', 'dry-run', 'reset-plan', 'help', 'sync-building'])
+  const bool = new Set(['clear-collab', 'dry-run', 'reset-plan', 'help', 'sync-building', 'roamer'])
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (!a.startsWith('--')) continue
@@ -76,6 +78,8 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const publicDir = path.join(here, '..', 'public')
 const floorsFile = path.resolve(o.floors || process.env.FLOORS_FILE || path.join(publicDir, 'floors.json'))
 const buildingFile = path.resolve(o.building || path.join(path.dirname(floorsFile), 'building.json'))
+const roamingRel = readJsonSafe(floorsFile)?.roaming || './roaming.json'
+const roamingFile = path.resolve(path.dirname(floorsFile), roamingRel)
 const now = new Date()
 const iso = (d) => {
   // 带本地时区偏移的 ISO 8601
@@ -93,6 +97,9 @@ function writeAtomic(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(tmp, text)
   fs.renameSync(tmp, file)
+}
+function readJsonSafe(file) {
+  return readJson(file)
 }
 function readJson(file) {
   try {
@@ -119,6 +126,8 @@ function summarizeAll() {
     for (const a of d?.agents ?? []) counts[a.status] = (counts[a.status] ?? 0) + 1
     out.floors.push({ id: f.id, completion, agents: (d?.agents ?? []).length, counts, updatedAt: d?.updatedAt ?? null })
   }
+  const roam = fs.existsSync(roamingFile) ? readJson(roamingFile) : null
+  out.roamers = (roam?.roamers ?? []).map((r) => ({ id: r.id, floor: r.currentFloor }))
   return out
 }
 function syncBuilding() {
@@ -134,10 +143,19 @@ if (o.syncBuilding && !o.id) {
   process.exit(0)
 }
 
+// ---- 漫游 bot（roaming.json）----
+const roamData = fs.existsSync(roamingFile) ? readJson(roamingFile) : null
+const isRoamer = !!o.roamer || !!roamData?.roamers?.some((r) => r.id === o.id)
+
 // ---- 解析目标 feed 文件 ----
 let file
 let floorDef = null
-if (o.file || process.env.STATUS_FILE) {
+if (isRoamer) {
+  if (!floorList.length) fail(`漫游 bot 需要楼层配置 ${floorsFile}`)
+  file = roamingFile
+  if (o.floor && !floorList.some((f) => f.id === o.floor)) fail(`没有这个楼层: ${o.floor}（可用：${floorList.map((f) => f.id).join(', ')}）`)
+  if (floorList.some((f) => !isUrl(f.feed) && fs.existsSync(feedPath(f)) && (readJson(feedPath(f))?.agents ?? []).some((a) => a.id === o.id))) fail(`${o.id} 已是某个楼层的固定成员，不能同时作为漫游 bot`)
+} else if (o.file || process.env.STATUS_FILE) {
   file = path.resolve(o.file || process.env.STATUS_FILE)
   floorDef = o.floor ? floorList.find((f) => f.id === o.floor) ?? null : null
 } else if (floorList.length) {
@@ -170,7 +188,11 @@ if (o.file || process.env.STATUS_FILE) {
 }
 
 let data
-if (fs.existsSync(file)) {
+if (isRoamer) {
+  data = roamData ?? { updatedAt: iso(now), roamers: [], collaborations: [] }
+  data.roamers ??= []
+  data.agents = data.roamers // 别名：复用下面通用的更新逻辑
+} else if (fs.existsSync(file)) {
   try {
     data = JSON.parse(fs.readFileSync(file, 'utf8'))
   } catch (e) {
@@ -179,7 +201,7 @@ if (fs.existsSync(file)) {
 } else {
   data = { updatedAt: iso(now), plan: { date: today, items: [] }, agents: [], collaborations: [] }
 }
-if (floorDef) data.floor = floorDef.id
+if (floorDef && !isRoamer) data.floor = floorDef.id
 data.plan ??= { date: today, items: [] }
 data.plan.items ??= []
 data.agents ??= []
@@ -206,8 +228,21 @@ if (!agent) {
     collaboratingWith: [],
     log: [],
   }
+  if (isRoamer) {
+    delete agent.desk
+    agent.currentFloor = o.floor || (floorList.find((f) => f.default) ?? floorList[floorList.length - 1]).id
+    agent.plan = []
+  }
   data.agents.push(agent)
-  console.log(`+ 新建 agent: ${o.id}（工位 ${agent.desk}）`)
+  console.log(isRoamer ? `+ 新建漫游 agent: ${o.id}（所在楼层 ${agent.currentFloor}）` : `+ 新建 agent: ${o.id}（工位 ${agent.desk}）`)
+}
+if (isRoamer) {
+  agent.plan ??= []
+  data.plan = { date: today, items: agent.plan } // 漫游 bot 的计划项存在它自己条目里
+  if (o.floor && agent.currentFloor !== o.floor) {
+    console.log(`→ ${agent.id} 从 ${agent.currentFloor ?? '?'} 移动到 ${o.floor}`)
+    agent.currentFloor = o.floor
+  }
 }
 
 if (o.json) {
@@ -243,7 +278,9 @@ const dropCollabs = () => {
 if (o.clearCollab) dropCollabs()
 if (o.with) {
   const ids = o.with.split(',').map((s) => s.trim()).filter(Boolean)
-  for (const id of ids) if (!data.agents.some((a) => a.id === id)) fail(`协作对象不存在: ${id}`)
+  const known = new Set(data.agents.map((a) => a.id))
+  if (isRoamer) for (const f of floorList) if (!isUrl(f.feed) && fs.existsSync(feedPath(f))) for (const a of readJson(feedPath(f))?.agents ?? []) known.add(a.id)
+  for (const id of ids) if (!known.has(id)) fail(`协作对象不存在: ${id}`)
   dropCollabs()
   agent.collaboratingWith = ids
   for (const id of ids) data.collaborations.push({ from: agent.id, to: id, topic: o.topic || agent.currentTask || '', since: iso(now) })
@@ -277,11 +314,16 @@ if (data.meta?.mock) delete data.meta.mock // 一旦有真实写入，就不再�
 if (data.meta && Object.keys(data.meta).length === 0) delete data.meta
 data.updatedAt = iso(now)
 
-const out = JSON.stringify(data, null, 2) + '\n'
+let outObj = data
+if (isRoamer) {
+  const { agents: _a, plan: _p, ...rest } = data
+  outObj = rest
+}
+const out = JSON.stringify(outObj, null, 2) + '\n'
 if (o.dryRun) {
   console.log(out)
   process.exit(0)
 }
 writeAtomic(file, out)
-console.log(`✓ ${agent.id}${floorDef ? `@${floorDef.id}` : ''} → ${agent.status}${agent.currentTask ? `「${agent.currentTask}」` : ''} 已写入 ${file}`)
-if (floorDef) syncBuilding()
+console.log(`✓ ${agent.id}${isRoamer ? `@${agent.currentFloor}(roaming)` : floorDef ? `@${floorDef.id}` : ''} → ${agent.status}${agent.currentTask ? `「${agent.currentTask}」` : ''} 已写入 ${file}`)
+if (floorDef || isRoamer) syncBuilding()

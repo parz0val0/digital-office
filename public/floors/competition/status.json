@@ -1,9 +1,9 @@
 {
   "floor": "competition",
-  "updatedAt": "2026-11-14T21:05:00+08:00",
+  "updatedAt": "2026-11-14T21:35:00+08:00",
   "meta": {
     "mock": true,
-    "note": "示例数据"
+    "note": "Example data"
   },
   "plan": {
     "date": "2026-11-14",
@@ -42,7 +42,7 @@
     {
       "id": "competition",
       "name": "competition",
-      "role": "竞赛助手",
+      "role": "Competition Scout",
       "color": "#e03131",
       "desk": 0,
       "status": "working",
@@ -63,7 +63,7 @@
     {
       "id": "match",
       "name": "比赛",
-      "role": "赛事分析",
+      "role": "Contest Analyst",
       "color": "#f08c00",
       "desk": 1,
       "status": "thinking",

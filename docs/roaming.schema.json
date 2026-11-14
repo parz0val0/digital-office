@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Digital Office roaming.json",
+  "type": "object",
+  "required": [
+    "roamers"
+  ],
+  "properties": {
+    "updatedAt": {
+      "type": "string"
+    },
+    "roamers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "color",
+          "currentFloor",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "currentFloor": {
+            "type": "string",
+            "description": "floors.json 中的楼层 id"
+          },
+          "status": {
+            "$ref": "status.schema.json#/$defs/status"
+          },
+          "currentTask": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "number"
+          },
+          "collaboratingWith": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "log": {
+            "type": "array"
+          },
+          "plan": {
+            "type": "array",
+            "items": {
+              "$ref": "status.schema.json#/$defs/planItem"
+            }
+          }
+        }
+      }
+    },
+    "collaborations": {
+      "type": "array",
+      "items": {
+        "$ref": "status.schema.json#/$defs/collaboration"
+      }
+    }
+  }
+}

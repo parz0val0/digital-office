@@ -8,7 +8,7 @@ import { themeFor } from './scene/themes'
 const params = readParams()
 
 export default function App() {
-  const { floors, ready } = useFloors(params.floorsUrl)
+  const { floors, ready, roamingUrl } = useFloors(params.floorsUrl)
   const [floorId, setFloorId] = useState<string>('')
   const [selectedId, setSelectedId] = useState<string | null>(params.select || null)
   const [hoverId, setHoverId] = useState<string | null>(null)
@@ -24,7 +24,7 @@ export default function App() {
   }, [ready, floors, floorId])
 
   const floor = useMemo(() => floors.find((f) => f.id === floorId) ?? null, [floors, floorId])
-  const { data, source, fetchedAt } = useFeed(floor, params.feed, params.demo, params.interval)
+  const { data, source, fetchedAt } = useFeed(floor, params.feed, roamingUrl, params.demo, params.interval)
   const { summary, error: summaryError } = useBuilding(overview)
 
   const shownFloor = useMemo(() => floors.find((f) => f.id === data?.floorId) ?? null, [floors, data?.floorId])
@@ -59,7 +59,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', k)
   }, [floors, floorId, goFloor])
 
-  const selected = snapshot?.agents.find((a) => a.id === selectedId) ?? null
+  const everyone = snapshot ? [...snapshot.agents, ...(snapshot.roamers ?? [])] : []
+  const selected = everyone.find((a) => a.id === selectedId) ?? null
+  const roamerInfos = data?.roamers ?? []
   const themeIdx = shownFloor ? floors.length - 1 - floors.findIndex((f) => f.id === shownFloor.id) : 0
   const view = snapshot && shownFloor ? { floor: shownFloor, snapshot, theme: themeFor(shownFloor.theme, themeIdx) } : null
   const label = shownFloor ? shownFloor.label ?? `${shownFloor.order}F` : ''
@@ -84,18 +86,19 @@ export default function App() {
               onGo={goFloor}
               summary={summary}
               summaryError={summaryError}
+              roamers={roamerInfos}
             />
           )}
           {(loading || !ready) && (
             <div className="floor-loading">
               <span className="spin big" />
-              {floor ? `正在进入 ${floor.label ?? floor.order + 'F'} ${floor.name}…` : '加载大楼…'}
+              {floor ? `Entering ${floor.label ?? floor.order + 'F'} ${floor.name}…` : 'Loading building…'}
             </div>
           )}
           <Legend />
         </div>
         <div className="right">
-          {selected && snapshot && <DetailPanel s={snapshot} agent={selected} onClose={() => setSelectedId(null)} />}
+          {selected && snapshot && <DetailPanel s={snapshot} agent={selected} roaming={(snapshot.roamers ?? []).some((r) => r.id === selected.id)} onClose={() => setSelectedId(null)} />}
           {snapshot && <FeedPanel s={snapshot} />}
         </div>
       </main>

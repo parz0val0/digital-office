@@ -1,20 +1,20 @@
 import type { Agent, AgentStatus, PlanItem, Snapshot } from './types'
 
 export const STATUS_META: Record<AgentStatus, { label: string; color: string; icon: string; hint: string }> = {
-  working: { label: '工作中', color: '#3b82f6', icon: '⌨️', hint: '正在专注处理任务' },
-  thinking: { label: '思考中', color: '#a855f7', icon: '💭', hint: '正在分析 / 规划' },
-  collaborating: { label: '协作中', color: '#14b8a6', icon: '🤝', hint: '正在会议桌与同事协作' },
-  waiting: { label: '等待确认', color: '#f59e0b', icon: '❗', hint: '需要 Jason 确认后继续' },
-  done: { label: '已完成', color: '#22c55e', icon: '✅', hint: '今日任务已完成' },
-  error: { label: '出错了', color: '#ef4444', icon: '⚠️', hint: '遇到错误，需要关注' },
-  offline: { label: '离线', color: '#9ca3af', icon: '💤', hint: '未连接 / 未启用' },
+  working: { label: 'Working', color: '#3b82f6', icon: '⌨️', hint: 'Focused on a task' },
+  thinking: { label: 'Thinking', color: '#a855f7', icon: '💭', hint: 'Analyzing / planning' },
+  collaborating: { label: 'Collaborating', color: '#14b8a6', icon: '🤝', hint: 'Working with teammates at the meeting table' },
+  waiting: { label: 'Waiting', color: '#f59e0b', icon: '❗', hint: "Needs Jason's confirmation to continue" },
+  done: { label: 'Done', color: '#22c55e', icon: '✅', hint: "Today's task is finished" },
+  error: { label: 'Error', color: '#ef4444', icon: '⚠️', hint: 'Hit an error — needs attention' },
+  offline: { label: 'Offline', color: '#9ca3af', icon: '💤', hint: 'Not connected / not enabled' },
 }
 
 export const PLAN_STATUS_LABEL: Record<PlanItem['status'], string> = {
-  todo: '待开始',
-  doing: '进行中',
-  done: '已完成',
-  blocked: '受阻',
+  todo: 'To do',
+  doing: 'In progress',
+  done: 'Done',
+  blocked: 'Blocked',
 }
 
 export function clamp01(n: number) {
@@ -33,24 +33,30 @@ export function overallProgress(s: Snapshot): number {
   return Math.round(items.reduce((a, i) => a + itemProgress(i), 0) / items.length)
 }
 
+/** 楼层成员 + 当前在这一层的漫游成员 */
+export function allAgents(s: Snapshot): Agent[] {
+  return [...s.agents, ...(s.roamers ?? [])]
+}
+
 export function agentPlan(s: Snapshot, agentId: string): PlanItem[] {
-  return s.plan.items.filter((i) => i.owner === agentId)
+  return [...s.plan.items, ...(s.roamPlan ?? [])].filter((i) => i.owner === agentId)
 }
 
 export function agentName(s: Snapshot, id: string): string {
-  return s.agents.find((a) => a.id === id)?.name ?? id
+  return allAgents(s).find((a) => a.id === id)?.name ?? id
 }
 
 /** 汇总：collaborations 数组 ∪ agent.collaboratingWith，去重后的无向连线 */
 export function collabLinks(s: Snapshot): { a: string; b: string; topic: string; since?: string }[] {
   const out = new Map<string, { a: string; b: string; topic: string; since?: string }>()
-  const ids = new Set(s.agents.map((a) => a.id))
+  const everyone = allAgents(s)
+  const ids = new Set(everyone.map((a) => a.id))
   const key = (a: string, b: string) => [a, b].sort().join('|')
   for (const c of s.collaborations) {
     if (!ids.has(c.from) || !ids.has(c.to) || c.from === c.to) continue
     out.set(key(c.from, c.to), { a: c.from, b: c.to, topic: c.topic, since: c.since })
   }
-  for (const ag of s.agents) {
+  for (const ag of everyone) {
     for (const o of ag.collaboratingWith ?? []) {
       if (!ids.has(o) || o === ag.id) continue
       const k = key(ag.id, o)
@@ -69,13 +75,13 @@ export function parseTime(t: string): Date | null {
 export function fmtClock(t: string): string {
   const d = parseTime(t)
   if (!d) return t
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 }
 
 export function fmtHM(t: string): string {
   const d = parseTime(t)
   if (!d) return t
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 export function fmtAgo(t?: string, now = Date.now()): string {
@@ -83,10 +89,10 @@ export function fmtAgo(t?: string, now = Date.now()): string {
   const d = parseTime(t)
   if (!d) return ''
   const s = Math.max(0, Math.round((now - d.getTime()) / 1000))
-  if (s < 60) return `${s} 秒`
-  if (s < 3600) return `${Math.round(s / 60)} 分钟`
-  if (s < 86400) return `${Math.floor(s / 3600)} 小时`
-  return `${Math.floor(s / 86400)} 天`
+  if (s < 60) return `${s}s`
+  if (s < 3600) return `${Math.round(s / 60)} min`
+  if (s < 86400) return `${Math.floor(s / 3600)} h`
+  return `${Math.floor(s / 86400)} d`
 }
 
 /** 校验 + 容错：缺字段不崩溃 */
@@ -125,4 +131,42 @@ export function normalize(raw: any): Snapshot {
       since: String(c.since ?? ''),
     })),
   }
+}
+
+export function fmtLongDate(date: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  if (!m) return date
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+export interface RoamerRecord extends Agent {
+  currentFloor: string
+  plan: PlanItem[]
+}
+
+/** roaming.json → 漫游成员（容错） */
+export function normalizeRoaming(raw: any): { roamers: RoamerRecord[]; collaborations: Snapshot['collaborations'] } {
+  const base = normalize({ agents: Array.isArray(raw?.roamers) ? raw.roamers : [], plan: { items: [] } })
+  const roamers = base.agents.map((a, i) => {
+    const r = raw.roamers[i]
+    return {
+      ...a,
+      currentFloor: String(r.currentFloor ?? ''),
+      plan: (Array.isArray(r.plan) ? r.plan : []).map((p: any, k: number) => ({
+        id: String(p.id ?? `r${k}`),
+        title: String(p.title ?? ''),
+        owner: a.id,
+        status: ['todo', 'doing', 'done', 'blocked'].includes(p.status) ? p.status : 'todo',
+        progress: typeof p.progress === 'number' ? p.progress : 0,
+      })),
+    } as RoamerRecord
+  })
+  const collaborations = (Array.isArray(raw?.collaborations) ? raw.collaborations : []).map((c: any) => ({
+    from: String(c.from ?? ''),
+    to: String(c.to ?? ''),
+    topic: String(c.topic ?? ''),
+    since: String(c.since ?? ''),
+  }))
+  return { roamers, collaborations }
 }

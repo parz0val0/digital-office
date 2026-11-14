@@ -14,11 +14,11 @@
 
 ```jsonc
 {
+  "roaming": "./roaming.json",        // 可选：漫游 bot 文件（见下）
   "floors": [
-    { "id": "competition", "name": "竞赛",          "order": 4, "feed": "./floors/competition/status.json", "theme": "sunset" },
-    { "id": "class",       "name": "课程",          "order": 3, "feed": "./floors/class/status.json",       "theme": "mint"   },
-    { "id": "trading",     "name": "交易",          "order": 2, "feed": "./floors/trading/status.json",     "theme": "night"  },
-    { "id": "lobby",       "name": "大厅 / 未分组", "order": 1, "feed": "./floors/lobby/status.json",       "theme": "warm", "default": true }
+    { "id": "competition", "name": "Competition", "order": 3, "feed": "./floors/competition/status.json", "theme": "sunset" },
+    { "id": "class",       "name": "Class",       "order": 2, "feed": "./floors/class/status.json",       "theme": "mint"   },
+    { "id": "lobby",       "name": "Lobby",       "order": 1, "feed": "./floors/lobby/status.json",       "theme": "warm", "default": true, "note": "Unassigned bots" }
   ]
 }
 ```
@@ -26,17 +26,17 @@
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 楼层 id（小写字母/数字/`-`/`_`），用于 `?floor=<id>` 与 `--floor <id>` |
-| `name` | 楼层名称，显示在电梯面板、墙上招牌、顶栏 |
+| `name` | 楼层名称（界面是英文，建议用英文，如 `Competition`），显示在电梯面板、墙上招牌、顶栏 |
 | `order` | 楼层号，数字越大越靠上；电梯面板从高到低排列，招牌默认显示 `${order}F` |
 | `feed` | 该层独立的 status.json；相对路径按 floors.json 所在目录解析，也可以是绝对 URL（需 CORS） |
 | `label` | 可选，覆盖楼层牌（默认 `4F`） |
 | `theme` | 可选：`warm` 暖木 · `mint` 薄荷 · `night` 夜蓝石板 · `sunset` 暖红；省略时按顺序轮换 |
 | `default` | 可选：默认进入的楼层，也是新 bot（未指定 `--floor`）的默认归属；都没标记时用最低的一层 |
 
-**初始分组是估计值（请按需修改）**：4F 竞赛（competition、比赛）· 3F 课程（排课、老师）· 2F 交易（Signal Trader、grokbot market、market·比价助手、codex cli）· 1F 大厅/未分组（office、Grok Bot、botmail、Director、last30days、debug、chat、window）。
+**初始分组是估计值（请按需修改）**：3F Competition（competition、比赛）· 2F Class（排课、老师）· 1F Lobby / 未分组（Grok Bot、botmail、Director、last30days、debug、chat、window，以及原交易组的 Signal Trader、codex cli、grokbot market、market·比价助手）。暂时没有交易楼层；需要时在 floors.json 加一项并把对应 bot 挪过去即可。`office` 是漫游 bot，不属于任何固定楼层。
 
 每层 feed 的结构与下文完全一致（可选地多一个 `"floor": "<id>"` 字段）。**一个 bot id 只应出现在一层**（id 在整栋楼内唯一）。
-楼层大小随成员数自动变化：成员少 → 房间小、工位少（如 2 人的竞赛层是单排小房间，8 人的大厅是两排大房间）。
+楼层大小随固定成员数自动变化：成员少 → 房间小、工位少（如 2 人的竞赛层是单排小房间，11 人的大厅是两排大房间）。漫游 bot 不占工位。
 没有 `floors.json` 时退化为单层模式，读取 `./status.json`。
 
 ### 按需加载（不看就不耗）
@@ -47,16 +47,44 @@
 - `?demo=1`：只拉取当前楼层一次作为种子，之后只在本地模拟当前楼层，不再发请求。
 - `building.json`（见下）**只在打开“大楼总览”时**读取，打开期间每 15 秒刷新、关闭即停；它是静态汇总文件，读取它不会触发任何 bot 活动。
 
+## 漫游 bot `roaming.json`
+
+有些 bot（目前是 `office`，数字办公室的维护者）不属于某一层，而是**可以出现在任何一层**。它们记录在 `public/roaming.json`（路径由 `floors.json` 的 `roaming` 字段指定，省略则完全不读取）：
+
+```jsonc
+{
+  "updatedAt": "2026-11-14T21:35:00+08:00",
+  "roamers": [
+    { "id": "office", "name": "office", "role": "Digital Engineer", "color": "#ff8a3d",
+      "currentFloor": "lobby",                        // 现在在哪一层（floors.json 里的 id）
+      "status": "working", "currentTask": "…", "progress": 72, "collaboratingWith": [], "log": [ … ],
+      "plan": [ { "id": "o1", "title": "…", "owner": "office", "status": "doing", "progress": 72 } ] }
+  ],
+  "collaborations": []                                // 可选：漫游 bot 与楼层成员的协作
+}
+```
+
+- 字段与普通 agent 相同，另有 `currentFloor`（必填）和 `plan`（该 bot 自己的今日计划项，只在详情面板显示，**不计入任何楼层的完成度**），没有 `desk`。
+- 前端**只在读取当前楼层 feed 的同时**顺带读一次这个很小的文件（同一个轮询周期，同样受“楼层切换即中止 / 标签页隐藏即暂停”的约束），所以不会为未查看的楼层产生任何额外请求。
+- 只有 `currentFloor` 等于当前楼层的漫游 bot 才会出现在场景里：在白板前书写、沿过道巡视；协作时走到会议桌旁；其余状态停在白板旁。头顶名牌带 `Roaming` 标记。
+- 电梯面板里，漫游 bot 当前所在楼层那一行会显示它的小标签（如 `office`）。位置信息来自上面这次顺带读取，所以标签反映的是“最近一次读取”的位置；`building.json` 也带有 `roamers: [{id, floor}]`（总览打开时可用）。
+- 移动它：`node scripts/update-status.mjs --id office --floor class`（`--floor` 对漫游 bot 的含义是“移动到那一层”）。新建漫游 bot：加 `--roamer`。
+
 ### 大楼总览 `building.json`
 
 极小的汇总文件，每层一条，供“大楼总览”面板显示各层完成度与人数，而不必加载各层 feed：
 
 ```jsonc
 { "updatedAt": "2026-11-14T21:19:47+08:00",
-  "floors": [ { "id": "trading", "completion": 51, "agents": 4, "counts": { "working": 1, "offline": 1, "collaborating": 2 }, "updatedAt": "…" } ] }
+  "roamers": [ { "id": "office", "floor": "lobby" } ],
+  "floors": [ { "id": "class", "completion": 61, "agents": 2, "counts": { "thinking": 1, "collaborating": 1 }, "updatedAt": "…" } ] }
 ```
 
 `scripts/update-status.mjs` 每次更新任一楼层后会自动重建它；也可以手动 `node scripts/update-status.mjs --sync-building`。
+
+## 界面语言
+
+界面（标题、标签、状态名、面板标题、楼层名、墙上招牌、图例、按钮、日期格式）全部为**英文**；**任务文本、计划项、当前任务、活动日志、协作主题保持中文**（由 bot 写入什么就显示什么）。bot 的 `name` 原样显示；`role` 字段会原样显示，示例数据用英文。
 
 ## URL 参数
 
@@ -143,7 +171,7 @@
 
 ```bash
 # 指定楼层（新 bot 首次上线时自动在该层创建并分配工位）
-node scripts/update-status.mjs --floor trading --id new-trader --name "新交易 bot" --role "交易" --color "#12b886" --status working
+node scripts/update-status.mjs --floor lobby --id new-bot --name "新 bot" --role "Trading" --color "#12b886" --status working
 
 # 开始工作
 node scripts/update-status.mjs --id botmail --status working --task "整理收件箱" --progress 10 --log "开始处理"

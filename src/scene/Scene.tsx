@@ -2,9 +2,9 @@ import { OrbitControls, OrthographicCamera } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { agentName, collabLinks, STATUS_META } from '../meta'
+import { agentName, allAgents, collabLinks, STATUS_META } from '../meta'
 import type { FloorDef, Snapshot } from '../types'
-import { Character } from './Character'
+import { Character, type RoamPlan } from './Character'
 import { CollabLinks } from './CollabLinks'
 import { FloorSign } from './FloorSign'
 import {
@@ -25,13 +25,37 @@ import {
   WallClock,
   WindowFrame,
 } from './Furniture'
-import { assignDesks, DESK_YAW, makeLayout } from './layout'
+import { assignDesks, DESK_YAW, makeLayout, type Layout } from './layout'
 import type { Theme } from './themes'
 import { Whiteboard } from './Whiteboard'
 
 const TARGET = new THREE.Vector3(0, 1.1, 0.3)
 const SLIDE = 15 // 楼层切换时的垂直滑动距离
 const SLIDE_SEC = 0.75
+
+/** 漫游成员（如 office）的活动路线：白板前 → 过道 → 会议桌旁，是一条链 */
+function roamChain(layout: Layout): Omit<RoamPlan, 'mode' | 'target'> {
+  const { w: _w, d } = layout.room
+  const wallZ = -d / 2 + 0.75
+  const x0 = layout.deskPos(0).x
+  const laneX = x0 + 3 * Math.floor((layout.perRow - 1) / 2) + 1.5
+  const tx = layout.table.w / 2 + 0.9
+  const V = (x: number, z: number) => new THREE.Vector3(x, 0, z)
+  return {
+    points: [V(-2.2, wallZ), V(2.2, wallZ), V(laneX, wallZ), V(laneX, layout.aisleZ), V(tx, layout.aisleZ), V(tx, layout.table.z)],
+    faces: [Math.PI, Math.PI, Math.PI, 0.3, 0.8, -Math.PI / 2],
+    pauses: [5, 5, 0.6, 0.6, 2.4, 0],
+    write: [true, true, false, false, false, false],
+    patrolMax: 4,
+  }
+}
+
+function roamModeFor(status: string): { mode: RoamPlan['mode']; target: number } {
+  if (status === 'working') return { mode: 'patrol', target: 0 }
+  if (status === 'collaborating') return { mode: 'goto', target: 5 }
+  if (status === 'thinking') return { mode: 'goto', target: 0 }
+  return { mode: 'goto', target: 1 }
+}
 
 export interface FloorView {
   floor: FloorDef
@@ -138,11 +162,13 @@ function FloorContent({ view, selectedId, onSelect, onHover, interactive }: Floo
   const n = snapshot.agents.length
   const layout = useMemo(() => makeLayout(Math.max(n, 2)), [n])
   const desks = useMemo(() => assignDesks(snapshot.agents), [snapshot.agents.map((a) => a.id + a.desk).join()])
-  const links = useMemo(() => collabLinks(snapshot), [snapshot.agents, snapshot.collaborations])
-  const colors = useMemo(() => Object.fromEntries(snapshot.agents.map((a) => [a.id, a.color])), [snapshot.agents])
+  const everyone = useMemo(() => allAgents(snapshot), [snapshot.agents, snapshot.roamers])
+  const links = useMemo(() => collabLinks(snapshot), [snapshot.agents, snapshot.roamers, snapshot.collaborations])
+  const colors = useMemo(() => Object.fromEntries(everyone.map((a) => [a.id, a.color])), [everyone])
+  const chain = useMemo(() => roamChain(layout), [layout])
   const activeLinks = links.filter((l) => {
-    const a = snapshot.agents.find((x) => x.id === l.a)
-    const b = snapshot.agents.find((x) => x.id === l.b)
+    const a = everyone.find((x) => x.id === l.a)
+    const b = everyone.find((x) => x.id === l.b)
     return a && b && a.status !== 'offline' && b.status !== 'offline'
   })
   const { w, d } = layout.room
@@ -206,9 +232,31 @@ function FloorContent({ view, selectedId, onSelect, onHover, interactive }: Floo
           />
         )
       })}
+      {(snapshot.roamers ?? []).map((a, i) => {
+        const partners = links.filter((l) => l.a === a.id || l.b === a.id).map((l) => agentName(snapshot, l.a === a.id ? l.b : l.a))
+        return (
+          <RoamerChar
+            key={a.id}
+            layout={layout}
+            chain={chain}
+            agent={a}
+            index={n + i}
+            selected={interactive && selectedId === a.id}
+            partners={a.status === 'collaborating' ? partners : []}
+            onSelect={interactive ? onSelect : noop}
+            onHover={interactive ? onHover : noop}
+          />
+        )
+      })}
       <CollabLinks links={activeLinks} colors={colors} />
     </group>
   )
+}
+
+function RoamerChar({ layout, chain, agent, index, selected, partners, onSelect, onHover }: { layout: Layout; chain: Omit<RoamPlan, 'mode' | 'target'>; agent: Snapshot['agents'][number]; index: number; selected: boolean; partners: string[]; onSelect: (id: string) => void; onHover: (id: string | null) => void }) {
+  const { mode, target } = roamModeFor(agent.status)
+  const roam = useMemo<RoamPlan>(() => ({ ...chain, mode, target }), [chain, mode, target])
+  return <Character layout={layout} roam={roam} agent={agent} index={index} deskSlot={0} seat={0} selected={selected} partnerNames={partners} onSelect={onSelect} onHover={onHover} />
 }
 
 /** 楼层电梯式切换：新楼层从上/下滑入，旧楼层向反方向滑出 */

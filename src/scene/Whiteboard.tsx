@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { itemProgress, overallProgress } from '../meta'
+import { fmtLongDate, itemProgress, overallProgress } from '../meta'
 import type { Snapshot } from '../types'
 import { Box } from './Furniture'
 
@@ -34,10 +34,11 @@ function draw(c: HTMLCanvasElement, s: Snapshot) {
   g.fillStyle = '#2b2438'
   g.font = `800 64px ${FONT}`
   g.textBaseline = 'alphabetic'
-  g.fillText('今日计划', 60, 100)
+  g.fillText("Today's Plan", 60, 100)
+  const titleW = g.measureText("Today's Plan").width
   g.font = `600 38px ${FONT}`
   g.fillStyle = '#8a7f99'
-  g.fillText(s.plan.date, 330, 98)
+  g.fillText(fmtLongDate(s.plan.date), 60 + titleW + 30, 98)
   // 总进度
   const total = overallProgress(s)
   g.fillStyle = '#2b2438'
@@ -111,7 +112,7 @@ function draw(c: HTMLCanvasElement, s: Snapshot) {
   if (!items.length) {
     g.fillStyle = '#b9b0a2'
     g.font = `600 44px ${FONT}`
-    g.fillText('今天还没有计划', 60, 300)
+    g.fillText('No plan items today', 60, 300)
   }
 }
 

@@ -1,27 +1,13 @@
 {
   "floor": "lobby",
-  "updatedAt": "2026-11-14T21:05:00+08:00",
+  "updatedAt": "2026-11-14T21:35:00+08:00",
   "meta": {
     "mock": true,
-    "note": "示例数据"
+    "note": "Example data"
   },
   "plan": {
     "date": "2026-11-14",
     "items": [
-      {
-        "id": "l1",
-        "title": "多楼层数字办公室改造",
-        "owner": "office",
-        "status": "doing",
-        "progress": 72
-      },
-      {
-        "id": "l2",
-        "title": "接入真实 bot 状态上报",
-        "owner": "office",
-        "status": "todo",
-        "progress": 10
-      },
       {
         "id": "l3",
         "title": "汇总各 bot 今日进度",
@@ -70,41 +56,58 @@
         "owner": "window",
         "status": "doing",
         "progress": 45
+      },
+      {
+        "id": "t1",
+        "title": "盘后复盘",
+        "owner": "signal-trader",
+        "status": "doing",
+        "progress": 62
+      },
+      {
+        "id": "t2",
+        "title": "生成明日交易信号",
+        "owner": "signal-trader",
+        "status": "todo",
+        "progress": 0
+      },
+      {
+        "id": "t3",
+        "title": "市场周报",
+        "owner": "grokbot-market",
+        "status": "todo",
+        "progress": 0
+      },
+      {
+        "id": "t4",
+        "title": "比价数据交叉验证",
+        "owner": "market-compare",
+        "status": "doing",
+        "progress": 55
+      },
+      {
+        "id": "t5",
+        "title": "重构数据层",
+        "owner": "codex-cli",
+        "status": "blocked",
+        "progress": 90
+      },
+      {
+        "id": "t6",
+        "title": "比价脚本单测",
+        "owner": "codex-cli",
+        "status": "done",
+        "progress": 100
       }
     ]
   },
   "agents": [
     {
-      "id": "office",
-      "name": "office",
-      "role": "数字工程师",
-      "color": "#ff8a3d",
-      "desk": 0,
-      "status": "working",
-      "currentTask": "维护数字办公室：多楼层改造",
-      "progress": 72,
-      "collaboratingWith": [],
-      "log": [
-        {
-          "time": "2026-11-14T20:58:00+08:00",
-          "text": "完成楼层配置 floors.json"
-        },
-        {
-          "time": "2026-11-14T20:31:00+08:00",
-          "text": "接入 status.json 数据契约"
-        },
-        {
-          "time": "2026-11-14T19:40:00+08:00",
-          "text": "和 Jason 确认视觉风格：等距 3D 卡通"
-        }
-      ]
-    },
-    {
       "id": "grokbot",
       "name": "Grok Bot",
-      "role": "主助手",
+      "role": "Main Assistant",
       "color": "#495057",
-      "desk": 1,
+      "desk": 0,
       "status": "working",
       "currentTask": "汇总今日各 bot 进度",
       "progress": 70,
@@ -123,9 +126,9 @@
     {
       "id": "botmail",
       "name": "botmail",
-      "role": "邮件",
+      "role": "Email",
       "color": "#ec6aa7",
-      "desk": 2,
+      "desk": 1,
       "status": "done",
       "currentTask": "整理并回复今日收件箱",
       "progress": 100,
@@ -144,9 +147,9 @@
     {
       "id": "director",
       "name": "Director",
-      "role": "视频导演",
+      "role": "Video Director",
       "color": "#e8590c",
-      "desk": 3,
+      "desk": 2,
       "status": "error",
       "currentTask": "渲染分镜 #3 失败（显存不足）",
       "progress": 33,
@@ -165,9 +168,9 @@
     {
       "id": "last30days",
       "name": "last30days",
-      "role": "调研",
+      "role": "Research",
       "color": "#82c91e",
-      "desk": 4,
+      "desk": 3,
       "status": "waiting",
       "currentTask": "等待确认：调研主题是否加入“AI 办公”",
       "progress": 40,
@@ -186,9 +189,9 @@
     {
       "id": "debug",
       "name": "debug",
-      "role": "排障",
+      "role": "Troubleshooting",
       "color": "#be4bdb",
-      "desk": 5,
+      "desk": 4,
       "status": "thinking",
       "currentTask": "定位昨晚定时任务失败的原因",
       "progress": 25,
@@ -207,9 +210,9 @@
     {
       "id": "chat",
       "name": "chat",
-      "role": "聊天",
+      "role": "Chat",
       "color": "#339af0",
-      "desk": 6,
+      "desk": 5,
       "status": "collaborating",
       "currentTask": "和 window 对齐待办入口",
       "progress": 50,
@@ -230,9 +233,9 @@
     {
       "id": "window",
       "name": "window",
-      "role": "窗口",
+      "role": "Window",
       "color": "#20c997",
-      "desk": 7,
+      "desk": 6,
       "status": "collaborating",
       "currentTask": "和 chat 对齐待办入口",
       "progress": 45,
@@ -249,6 +252,90 @@
           "text": "整理对外窗口列表"
         }
       ]
+    },
+    {
+      "id": "signal-trader",
+      "name": "Signal Trader",
+      "role": "Trading Signals",
+      "color": "#12b886",
+      "desk": 7,
+      "status": "working",
+      "currentTask": "盘后复盘 & 生成明日信号",
+      "progress": 62,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:30:00+08:00",
+          "text": "复盘 A 股收盘表现"
+        },
+        {
+          "time": "2026-11-14T20:02:00+08:00",
+          "text": "信号回测完成：胜率 57%"
+        }
+      ]
+    },
+    {
+      "id": "grokbot-market",
+      "name": "grokbot market",
+      "role": "Market",
+      "color": "#845ef7",
+      "desk": 8,
+      "status": "offline",
+      "currentTask": "",
+      "progress": 0,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T18:10:00+08:00",
+          "text": "离线：等待 Jason 配置"
+        }
+      ]
+    },
+    {
+      "id": "market-compare",
+      "name": "market·比价助手",
+      "role": "Price Compare",
+      "color": "#22b8cf",
+      "desk": 9,
+      "status": "collaborating",
+      "currentTask": "与 codex cli 校验比价脚本",
+      "progress": 55,
+      "collaboratingWith": [
+        "codex-cli"
+      ],
+      "log": [
+        {
+          "time": "2026-11-14T20:33:00+08:00",
+          "text": "开始与 codex cli 协作：校验比价脚本"
+        },
+        {
+          "time": "2026-11-14T19:45:00+08:00",
+          "text": "完成 3 个平台价格抓取"
+        }
+      ]
+    },
+    {
+      "id": "codex-cli",
+      "name": "codex cli",
+      "role": "Coding",
+      "color": "#3b82f6",
+      "desk": 10,
+      "status": "collaborating",
+      "currentTask": "与 比价助手 校验比价脚本",
+      "progress": 90,
+      "collaboratingWith": [
+        "market-compare"
+      ],
+      "log": [
+        {
+          "time": "2026-11-14T20:33:00+08:00",
+          "text": "开始与 比价助手 协作"
+        },
+        {
+          "time": "2026-11-14T19:50:00+08:00",
+          "text": "单元测试 48/48 通过"
+        }
+      ]
     }
   ],
   "collaborations": [
@@ -257,6 +344,12 @@
       "to": "window",
       "topic": "对齐待办入口",
       "since": "2026-11-14T20:52:00+08:00"
+    },
+    {
+      "from": "market-compare",
+      "to": "codex-cli",
+      "topic": "校验比价脚本",
+      "since": "2026-11-14T20:33:00+08:00"
     }
   ]
 }

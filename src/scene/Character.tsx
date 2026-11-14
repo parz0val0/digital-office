@@ -1,6 +1,6 @@
 import { Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { STATUS_META } from '../meta'
 import type { Agent } from '../types'
@@ -218,7 +218,18 @@ function Accessory({ kind, color, accent }: { kind: string; color: string; accen
   }
 }
 
+export interface RoamPlan {
+  points: THREE.Vector3[]
+  faces: number[] // 到达后面朝的 yaw
+  pauses: number[] // 到达后停留秒数
+  write: boolean[] // 停留时是否做“在白板上书写”的动作
+  patrolMax: number // 巡逻时在 0..patrolMax 之间往返
+  mode: 'patrol' | 'goto'
+  target: number // goto 模式的目标路点（路点是一条链，只沿链走，避免穿过工位）
+}
+
 export interface CharacterProps {
+  roam?: RoamPlan
   layout: Layout
   agent: Agent
   index: number
@@ -233,7 +244,7 @@ export interface CharacterProps {
 const SIT_LIFT = 0.26
 const CHAR_SCALE = 1.18
 
-export function Character({ layout, agent, index, deskSlot, seat, selected, partnerNames, onSelect, onHover }: CharacterProps) {
+export function Character({ roam, layout, agent, index, deskSlot, seat, selected, partnerNames, onSelect, onHover }: CharacterProps) {
   const st = agent.status
   const offline = st === 'offline'
   const base = offline ? lerpColor(agent.color, '#9aa0a6', 0.8) : agent.color
@@ -264,35 +275,83 @@ export function Character({ layout, agent, index, deskSlot, seat, selected, part
     tmp: new THREE.Vector3(),
     walkSign: 1,
     init: false,
+    rc: 0, // 漫游：正前往的路点
+    rdir: 1,
+    rpause: 0,
+    writing: false,
   })
+  useEffect(() => {
+    // 漫游计划变化（状态改变）：从当前位置重新出发
+    const s = sim.current
+    s.rpause = 0
+  }, [roam?.mode, roam?.target])
 
   useFrame((state, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05)
     const s = sim.current
     const time = state.clock.elapsedTime + s.phase
-    const atTable = st === 'collaborating'
+    const atTable = st === 'collaborating' && !roam
+    let moving = false
+    let wantYaw = 0
+    if (roam) {
+      // ---- 漫游角色：沿一条“链”在白板前 / 过道 / 会议桌旁走动 ----
+      const last = roam.points.length - 1
+      if (!s.init) {
+        s.rc = roam.mode === 'goto' ? roam.target : 0
+        s.pos.copy(roam.points[s.rc])
+        s.yaw = roam.faces[s.rc]
+        s.init = true
+        s.rpause = roam.pauses[s.rc]
+      }
+      s.rc = Math.max(0, Math.min(last, s.rc))
+      const tp = roam.points[s.rc]
+      const dx = tp.x - s.pos.x
+      const dz = tp.z - s.pos.z
+      const dist = Math.hypot(dx, dz)
+      s.writing = false
+      if (dist > 0.06) {
+        moving = true
+        const step = Math.min(dist, dt * 2.4)
+        s.pos.x += (dx / dist) * step
+        s.pos.z += (dz / dist) * step
+        wantYaw = Math.atan2(dx, dz)
+        if (dist <= step + 1e-6) s.rpause = roam.mode === 'patrol' ? roam.pauses[s.rc] : 0
+      } else {
+        wantYaw = roam.faces[s.rc]
+        if (roam.mode === 'goto') {
+          if (s.rc !== roam.target) s.rc += Math.sign(roam.target - s.rc)
+          else s.writing = roam.write[s.rc] && st === 'working'
+        } else {
+          s.writing = roam.write[s.rc] && st === 'working'
+          s.rpause -= dt
+          if (s.rpause <= 0) {
+            if (s.rc >= roam.patrolMax) s.rdir = -1
+            else if (s.rc <= 0) s.rdir = 1
+            s.rc += s.rdir
+          }
+        }
+      }
+    } else {
     const target = atTable ? route.length : 0
     if (!s.init) {
       s.t = target
       s.init = true
     }
     const diff = target - s.t
-    const moving = Math.abs(diff) > 0.02
+    moving = Math.abs(diff) > 0.02
     if (moving) {
       s.walkSign = Math.sign(diff)
       s.t += s.walkSign * Math.min(Math.abs(diff), dt * 3.2)
     } else s.t = target
     route.at(s.t, s.pos, s.dir)
-
-    // 朝向
-    let wantYaw: number
     if (moving) wantYaw = Math.atan2(s.dir.x * s.walkSign, s.dir.z * s.walkSign)
     else wantYaw = atTable ? seatYaw : deskYaw
+    }
     let dy = wantYaw - s.yaw
     dy = Math.atan2(Math.sin(dy), Math.cos(dy))
     s.yaw += dy * Math.min(1, dt * 9)
 
-    const sitTarget = moving ? 0 : 1
+    const sitTarget = moving || roam ? 0 : 1
     s.sit += (sitTarget - s.sit) * Math.min(1, dt * 6)
 
     const g = root.current
@@ -329,6 +388,19 @@ export function Character({ layout, agent, index, deskSlot, seat, selected, part
       bobY = breathe
       switch (st) {
         case 'working': {
+          if (roam) {
+            if (s.writing) {
+              aRx = -2.45 + Math.sin(time * 7) * 0.12
+              aRz = -0.15 + Math.sin(time * 3.5) * 0.18
+              aLx = -0.1
+              headRx = -0.12
+            } else {
+              aLx = -0.9 + Math.sin(time * 2) * 0.1
+              aRx = -0.9
+              headRx = 0.05
+            }
+            break
+          }
           aLx = -1.15 + Math.sin(time * 15) * 0.22
           aRx = -1.15 + Math.sin(time * 15 + 2.2) * 0.22
           headRx = 0.12 + Math.sin(time * 3) * 0.03
@@ -531,6 +603,7 @@ export function Character({ layout, agent, index, deskSlot, seat, selected, part
           <div className="plate" style={{ ['--c' as any]: agent.color }}>
             <span className="dot" style={{ background: meta.color }} />
             <b>{agent.name}</b>
+            {roam && <em className="roamtag">Roaming</em>}
                         {!offline && typeof agent.progress === 'number' && agent.status !== 'done' && (
               <span className="bar">
                 <span style={{ width: `${Math.max(0, Math.min(100, agent.progress))}%`, background: agent.color }} />

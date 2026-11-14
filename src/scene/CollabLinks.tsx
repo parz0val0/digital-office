@@ -69,7 +69,7 @@ function Link({ a, b, color, topic }: { a: string; b: string; color: string; top
       <group ref={label}>
         <Html center zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>
           <div className="linkchip" style={{ borderColor: color, color }}>
-            {topic ? topic : '协作中'}
+            {topic ? topic : 'Collab'}
           </div>
         </Html>
       </group>

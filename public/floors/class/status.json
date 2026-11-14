@@ -1,9 +1,9 @@
 {
   "floor": "class",
-  "updatedAt": "2026-11-14T21:05:00+08:00",
+  "updatedAt": "2026-11-14T21:35:00+08:00",
   "meta": {
     "mock": true,
-    "note": "示例数据"
+    "note": "Example data"
   },
   "plan": {
     "date": "2026-11-14",
@@ -49,7 +49,7 @@
     {
       "id": "class-arrangement",
       "name": "排课",
-      "role": "排课助理",
+      "role": "Scheduler",
       "color": "#f4b400",
       "desk": 0,
       "status": "thinking",
@@ -70,7 +70,7 @@
     {
       "id": "teacher",
       "name": "老师",
-      "role": "教学辅导",
+      "role": "Tutor",
       "color": "#7c5cff",
       "desk": 1,
       "status": "collaborating",

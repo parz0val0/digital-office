@@ -5,219 +5,394 @@
   "n": "FLOORS_CFG"
  },
  {
-  "t": 137,
+  "t": 140,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 140,
   "ev": "req",
   "n": "lobby"
  },
  {
-  "t": 2143,
+  "t": 2141,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 2141,
   "ev": "req",
   "n": "lobby"
  },
  {
-  "t": 4137,
+  "t": 4141,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 4141,
   "ev": "req",
   "n": "lobby"
  },
  {
-  "t": 6138,
+  "t": 6148,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 6148,
   "ev": "req",
   "n": "lobby"
  },
  {
-  "t": 8139,
+  "t": 8141,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 8141,
   "ev": "req",
   "n": "lobby"
  },
  {
-  "t": 9311,
+  "t": 9512,
   "ev": "req",
-  "n": "trading"
+  "n": "ROAMING"
  },
  {
-  "t": 11670,
-  "ev": "req",
-  "n": "trading"
- },
- {
-  "t": 13305,
-  "ev": "req",
-  "n": "trading"
- },
- {
-  "t": 15306,
-  "ev": "req",
-  "n": "trading"
- },
- {
-  "t": 17305,
-  "ev": "req",
-  "n": "trading"
- },
- {
-  "t": 19305,
-  "ev": "req",
-  "n": "trading"
- },
- {
-  "t": 21305,
-  "ev": "req",
-  "n": "trading"
- },
- {
-  "t": 23312,
-  "ev": "req",
-  "n": "trading"
- },
- {
-  "t": 25010,
+  "t": 9512,
   "ev": "req",
   "n": "class"
  },
  {
-  "t": 27007,
+  "t": 11503,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 11503,
   "ev": "req",
   "n": "class"
  },
  {
-  "t": 29008,
+  "t": 13500,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 13500,
   "ev": "req",
   "n": "class"
  },
  {
-  "t": 31007,
+  "t": 15501,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 15502,
   "ev": "req",
   "n": "class"
  },
  {
-  "t": 31246,
+  "t": 17502,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 17502,
+  "ev": "req",
+  "n": "class"
+ },
+ {
+  "t": 19501,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 19501,
+  "ev": "req",
+  "n": "class"
+ },
+ {
+  "t": 21500,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 21500,
+  "ev": "req",
+  "n": "class"
+ },
+ {
+  "t": 23500,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 23500,
+  "ev": "req",
+  "n": "class"
+ },
+ {
+  "t": 25502,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 25502,
+  "ev": "req",
+  "n": "class"
+ },
+ {
+  "t": 25642,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 25643,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 33243,
+  "t": 27629,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 27629,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 35243,
+  "t": 29630,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 29630,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 37243,
+  "t": 31702,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 31703,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 37334,
+  "t": 31991,
   "ev": "req",
   "n": "BUILDING"
  },
  {
-  "t": 39244,
+  "t": 33627,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 33627,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 41243,
+  "t": 35631,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 35631,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 43243,
+  "t": 37629,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 37629,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 45243,
+  "t": 39628,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 39628,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 47246,
+  "t": 41628,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 41628,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 49243,
+  "t": 43631,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 43634,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 51251,
+  "t": 45628,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 45628,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 53249,
+  "t": 47636,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 47636,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 55251,
+  "t": 49628,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 49629,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 57251,
+  "t": 51628,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 51628,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 59243,
+  "t": 53631,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 53631,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 68679,
+  "t": 63312,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 63312,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 70679,
+  "t": 65313,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 65313,
   "ev": "req",
   "n": "competition"
  },
  {
-  "t": 71923,
+  "t": 66661,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 66662,
   "ev": "req",
   "n": "class"
  },
  {
-  "t": 72777,
+  "t": 67254,
   "ev": "req",
-  "n": "trading"
+  "n": "ROAMING"
  },
  {
-  "t": 72827,
+  "t": 67254,
+  "ev": "req",
+  "n": "lobby"
+ },
+ {
+  "t": 67304,
   "ev": "ABORT/FAIL",
   "n": "class",
   "why": "net::ERR_ABORTED"
  },
  {
-  "t": 74774,
+  "t": 69660,
   "ev": "req",
-  "n": "trading"
+  "n": "ROAMING"
  },
  {
-  "t": 76773,
+  "t": 69660,
   "ev": "req",
-  "n": "trading"
+  "n": "lobby"
  },
  {
-  "t": 78786,
+  "t": 71252,
   "ev": "req",
-  "n": "trading"
+  "n": "ROAMING"
  },
  {
-  "t": 80775,
+  "t": 71252,
   "ev": "req",
-  "n": "trading"
+  "n": "lobby"
  },
  {
-  "t": 82773,
+  "t": 73255,
   "ev": "req",
-  "n": "trading"
+  "n": "ROAMING"
+ },
+ {
+  "t": 73255,
+  "ev": "req",
+  "n": "lobby"
+ },
+ {
+  "t": 75254,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 75254,
+  "ev": "req",
+  "n": "lobby"
+ },
+ {
+  "t": 77252,
+  "ev": "req",
+  "n": "ROAMING"
+ },
+ {
+  "t": 77252,
+  "ev": "req",
+  "n": "lobby"
  }
 ]
