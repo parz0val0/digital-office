@@ -1,0 +1,370 @@
+{
+  "updatedAt": "2026-11-14T20:45:00+08:00",
+  "meta": {
+    "mock": true,
+    "note": "示例数据：接入真实 bot 后由 scripts/update-status.mjs 写入"
+  },
+  "plan": {
+    "date": "2026-11-14",
+    "items": [
+      {
+        "id": "p1",
+        "title": "搭建数字办公室 MVP",
+        "owner": "office",
+        "status": "doing",
+        "progress": 78
+      },
+      {
+        "id": "p2",
+        "title": "接入真实 bot 状态上报",
+        "owner": "office",
+        "status": "todo",
+        "progress": 10
+      },
+      {
+        "id": "p3",
+        "title": "解决周三教室冲突",
+        "owner": "class-arrangement",
+        "status": "doing",
+        "progress": 45
+      },
+      {
+        "id": "p4",
+        "title": "本周课表导入",
+        "owner": "class-arrangement",
+        "status": "done",
+        "progress": 100
+      },
+      {
+        "id": "p5",
+        "title": "批改作业",
+        "owner": "teacher",
+        "status": "done",
+        "progress": 100
+      },
+      {
+        "id": "p6",
+        "title": "周三课程调整核对",
+        "owner": "teacher",
+        "status": "doing",
+        "progress": 60
+      },
+      {
+        "id": "p7",
+        "title": "盘后复盘",
+        "owner": "signal-trader",
+        "status": "doing",
+        "progress": 62
+      },
+      {
+        "id": "p8",
+        "title": "生成明日交易信号",
+        "owner": "signal-trader",
+        "status": "todo",
+        "progress": 0
+      },
+      {
+        "id": "p9",
+        "title": "合并重构分支",
+        "owner": "codex-cli",
+        "status": "blocked",
+        "progress": 90
+      },
+      {
+        "id": "p10",
+        "title": "整理今日收件箱",
+        "owner": "botmail",
+        "status": "done",
+        "progress": 100
+      },
+      {
+        "id": "p11",
+        "title": "视频分镜渲染",
+        "owner": "director",
+        "status": "blocked",
+        "progress": 33
+      },
+      {
+        "id": "p12",
+        "title": "比价数据交叉验证",
+        "owner": "market-compare",
+        "status": "doing",
+        "progress": 55
+      },
+      {
+        "id": "p13",
+        "title": "近 30 天热点调研",
+        "owner": "last30days",
+        "status": "doing",
+        "progress": 40
+      },
+      {
+        "id": "p14",
+        "title": "市场周报",
+        "owner": "grokbot-market",
+        "status": "todo",
+        "progress": 0
+      },
+      {
+        "id": "p15",
+        "title": "汇总各 bot 今日进度",
+        "owner": "grokbot",
+        "status": "doing",
+        "progress": 70
+      }
+    ]
+  },
+  "agents": [
+    {
+      "id": "office",
+      "name": "office",
+      "role": "数字工程师",
+      "color": "#ff8a3d",
+      "desk": 0,
+      "status": "working",
+      "currentTask": "搭建 3D 数字办公室 MVP",
+      "progress": 78,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:31:00+08:00",
+          "text": "接入 status.json 数据契约"
+        },
+        {
+          "time": "2026-11-14T20:12:00+08:00",
+          "text": "完成等距相机与角色动画"
+        },
+        {
+          "time": "2026-11-14T19:40:00+08:00",
+          "text": "和 Jason 确认视觉风格：等距 3D 卡通"
+        }
+      ]
+    },
+    {
+      "id": "class-arrangement",
+      "name": "排课",
+      "role": "排课助理",
+      "color": "#f4b400",
+      "desk": 1,
+      "status": "thinking",
+      "currentTask": "解决周三下午的教室冲突",
+      "progress": 45,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:25:00+08:00",
+          "text": "检测到 2 处教室冲突"
+        },
+        {
+          "time": "2026-11-14T19:58:00+08:00",
+          "text": "导入本周课表"
+        }
+      ]
+    },
+    {
+      "id": "teacher",
+      "name": "老师",
+      "role": "教学辅导",
+      "color": "#7c5cff",
+      "desk": 2,
+      "status": "collaborating",
+      "currentTask": "和 排课 核对周三课程调整",
+      "progress": 60,
+      "collaboratingWith": [
+        "class-arrangement"
+      ],
+      "log": [
+        {
+          "time": "2026-11-14T20:35:00+08:00",
+          "text": "开始与 排课 协作：周三课程调整"
+        },
+        {
+          "time": "2026-11-14T20:05:00+08:00",
+          "text": "批改完成 12 份作业"
+        }
+      ]
+    },
+    {
+      "id": "signal-trader",
+      "name": "Signal Trader",
+      "role": "交易信号",
+      "color": "#12b886",
+      "desk": 3,
+      "status": "working",
+      "currentTask": "盘后复盘 & 生成明日信号",
+      "progress": 62,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:30:00+08:00",
+          "text": "复盘 A 股收盘表现"
+        },
+        {
+          "time": "2026-11-14T20:02:00+08:00",
+          "text": "信号回测完成：胜率 57%"
+        }
+      ]
+    },
+    {
+      "id": "codex-cli",
+      "name": "codex cli",
+      "role": "代码",
+      "color": "#3b82f6",
+      "desk": 4,
+      "status": "waiting",
+      "currentTask": "等待确认：是否合并重构分支",
+      "progress": 90,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:38:00+08:00",
+          "text": "重构完成，等待 Jason 确认合并"
+        },
+        {
+          "time": "2026-11-14T19:50:00+08:00",
+          "text": "单元测试 48/48 通过"
+        }
+      ]
+    },
+    {
+      "id": "botmail",
+      "name": "botmail",
+      "role": "邮件",
+      "color": "#ec6aa7",
+      "desk": 5,
+      "status": "done",
+      "currentTask": "整理并回复今日收件箱",
+      "progress": 100,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:20:00+08:00",
+          "text": "今日邮件全部处理完毕"
+        },
+        {
+          "time": "2026-11-14T19:10:00+08:00",
+          "text": "归类 23 封未读邮件"
+        }
+      ]
+    },
+    {
+      "id": "director",
+      "name": "Director",
+      "role": "视频导演",
+      "color": "#e8590c",
+      "desk": 6,
+      "status": "error",
+      "currentTask": "渲染分镜 #3 失败（显存不足）",
+      "progress": 33,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:40:00+08:00",
+          "text": "分镜 #3 渲染失败：显存不足"
+        },
+        {
+          "time": "2026-11-14T20:00:00+08:00",
+          "text": "分镜 #1-#2 渲染完成"
+        }
+      ]
+    },
+    {
+      "id": "market-compare",
+      "name": "market·比价助手",
+      "role": "比价",
+      "color": "#22b8cf",
+      "desk": 7,
+      "status": "collaborating",
+      "currentTask": "与 调研 交叉验证价格数据",
+      "progress": 55,
+      "collaboratingWith": [
+        "last30days"
+      ],
+      "log": [
+        {
+          "time": "2026-11-14T20:33:00+08:00",
+          "text": "开始与 last30days 协作：价格数据交叉验证"
+        },
+        {
+          "time": "2026-11-14T19:45:00+08:00",
+          "text": "完成 3 个平台价格抓取"
+        }
+      ]
+    },
+    {
+      "id": "last30days",
+      "name": "last30days",
+      "role": "调研",
+      "color": "#82c91e",
+      "desk": 8,
+      "status": "collaborating",
+      "currentTask": "整理近 30 天热点并校验价格",
+      "progress": 40,
+      "collaboratingWith": [
+        "market-compare"
+      ],
+      "log": [
+        {
+          "time": "2026-11-14T20:33:00+08:00",
+          "text": "开始与 比价助手 协作"
+        },
+        {
+          "time": "2026-11-14T19:30:00+08:00",
+          "text": "汇总近 30 天讨论热度"
+        }
+      ]
+    },
+    {
+      "id": "grokbot-market",
+      "name": "grokbot market",
+      "role": "市场",
+      "color": "#845ef7",
+      "desk": 9,
+      "status": "offline",
+      "currentTask": "",
+      "progress": 0,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T18:10:00+08:00",
+          "text": "离线：等待 Jason 配置"
+        }
+      ]
+    },
+    {
+      "id": "grokbot",
+      "name": "Grok Bot",
+      "role": "主助手",
+      "color": "#495057",
+      "desk": 10,
+      "status": "working",
+      "currentTask": "汇总今日各 bot 进度",
+      "progress": 70,
+      "collaboratingWith": [],
+      "log": [
+        {
+          "time": "2026-11-14T20:36:00+08:00",
+          "text": "收集 10 个 bot 的状态"
+        },
+        {
+          "time": "2026-11-14T20:00:00+08:00",
+          "text": "早报已生成"
+        }
+      ]
+    }
+  ],
+  "collaborations": [
+    {
+      "from": "teacher",
+      "to": "class-arrangement",
+      "topic": "周三课程调整",
+      "since": "2026-11-14T20:35:00+08:00"
+    },
+    {
+      "from": "market-compare",
+      "to": "last30days",
+      "topic": "价格数据交叉验证",
+      "since": "2026-11-14T20:33:00+08:00"
+    }
+  ]
+}
