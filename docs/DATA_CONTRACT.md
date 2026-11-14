@@ -45,7 +45,10 @@
 - 切换楼层：立即 `abort` 旧楼层在途请求并停止旧轮询，再开始新楼层的轮询；**不预取**其他楼层。
 - 标签页隐藏（`visibilitychange`）时暂停轮询并中止在途请求，恢复可见时立即补拉一次。
 - `?demo=1`：只拉取当前楼层一次作为种子，之后只在本地模拟当前楼层，不再发请求。
-- `building.json`（见下）**只在打开“大楼总览”时**读取，打开期间每 15 秒刷新、关闭即停；它是静态汇总文件，读取它不会触发任何 bot 活动。
+- 默认视图是**整栋楼**（3D 等距，每层一块悬浮托盘）。此视图**只读 `building.json`**（见下），不读任何楼层 feed、也不读 `roaming.json`；每 `?interval` 毫秒刷新，标签页隐藏时暂停。
+- 点击某一层（或用右侧楼层条）→ 镜头缓动拉近（约 1.7 秒），上方楼层升起、下方楼层下沉，此时才开始只请求该层 feed + `roaming.json`，`building.json` 停止轮询。
+- 点 `Exit floor` / 按 `Esc` → 镜头缓动拉远回到整栋楼（约 1.5 秒），楼层 feed 停止、`building.json` 恢复轮询。
+- `building.json` 是静态汇总文件，读取它不会触发任何 bot 活动。
 
 ## 漫游 bot `roaming.json`
 
@@ -67,17 +70,22 @@
 - 字段与普通 agent 相同，另有 `currentFloor`（必填）和 `plan`（该 bot 自己的今日计划项，只在详情面板显示，**不计入任何楼层的完成度**），没有 `desk`。
 - 前端**只在读取当前楼层 feed 的同时**顺带读一次这个很小的文件（同一个轮询周期，同样受“楼层切换即中止 / 标签页隐藏即暂停”的约束），所以不会为未查看的楼层产生任何额外请求。
 - 只有 `currentFloor` 等于当前楼层的漫游 bot 才会出现在场景里：在白板前书写、沿过道巡视；协作时走到会议桌旁；其余状态停在白板旁。头顶名牌带 `Roaming` 标记。
-- 电梯面板里，漫游 bot 当前所在楼层那一行会显示它的小标签（如 `office`）。位置信息来自上面这次顺带读取，所以标签反映的是“最近一次读取”的位置；`building.json` 也带有 `roamers: [{id, floor}]`（总览打开时可用）。
+- 整栋楼视图里，漫游 bot 当前所在楼层的标牌/列表会显示它的小标签（如 `office`），数据来自 `building.json` 的 `roamers`；进入楼层后以 `roaming.json` 为准。
 - 移动它：`node scripts/update-status.mjs --id office --floor class`（`--floor` 对漫游 bot 的含义是“移动到那一层”）。新建漫游 bot：加 `--roamer`。
 
-### 大楼总览 `building.json`
+### 整栋楼视图 `building.json`
 
-极小的汇总文件，每层一条，供“大楼总览”面板显示各层完成度与人数，而不必加载各层 feed：
+极小的汇总文件，每层一条，足够画出整栋楼（每层的完成度、人数，以及每个 bot 的状态色圆点），而不必加载各层 feed：
 
 ```jsonc
 { "updatedAt": "2026-11-14T21:19:47+08:00",
-  "roamers": [ { "id": "office", "floor": "lobby" } ],
-  "floors": [ { "id": "class", "completion": 61, "agents": 2, "counts": { "thinking": 1, "collaborating": 1 }, "updatedAt": "…" } ] }
+  "meta": { "mock": true },                              // 可选：示例数据标记
+  "roamers": [ { "id": "office", "floor": "lobby", "name": "office", "color": "#ff8a3d", "status": "working" } ],
+  "floors": [ { "id": "class", "completion": 61, "agents": 2,
+                "items": { "done": 2, "total": 5 },
+                "counts": { "thinking": 1, "collaborating": 1 },
+                "members": [ { "id": "class-arrangement", "name": "class arrangement", "color": "#…", "status": "thinking", "desk": 0 } ],
+                "updatedAt": "…" } ] }
 ```
 
 `scripts/update-status.mjs` 每次更新任一楼层后会自动重建它；也可以手动 `node scripts/update-status.mjs --sync-building`。

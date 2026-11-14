@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { startDemo } from './demo'
-import { normalize, normalizeRoaming } from './meta'
-import type { BuildingSummary, FeedSource, FloorDef, RoamerInfo, Snapshot } from './types'
+import { normalize, normalizeRoaming, STATUS_META } from './meta'
+import type { AgentStatus, BuildingSummary, FeedSource, FloorDef, RoamerInfo, Snapshot } from './types'
 
 export function readParams() {
   const q = new URLSearchParams(location.search)
@@ -185,14 +185,16 @@ export function useFeed(floor: FloorDef | null, feedOverride: string, roamingUrl
   return { data, source, error, fetchedAt }
 }
 
-/** 大楼总览：只在面板打开时读取 building.json（极小的汇总文件），打开期间每 15 秒刷新一次，隐藏时暂停 */
-export function useBuilding(open: boolean, url = './building.json') {
+/** 大楼视图：只在「整栋楼」视图打开时读取 building.json（极小的汇总，含每个 bot 的状态），隐藏标签页时暂停 */
+export function useBuilding(open: boolean, intervalMs: number, url = './building.json') {
   const [summary, setSummary] = useState<BuildingSummary | null>(null)
   const [error, setError] = useState(false)
+  const [fetchedAt, setFetchedAt] = useState(Date.now())
   useEffect(() => {
     if (!open) return
     let ac: AbortController | null = null
     let timer: ReturnType<typeof setInterval> | null = null
+    const st = (v: any): AgentStatus => (v in STATUS_META ? v : 'offline')
     const load = async () => {
       ac?.abort()
       const mine = (ac = new AbortController())
@@ -202,15 +204,19 @@ export function useBuilding(open: boolean, url = './building.json') {
         const raw = await res.json()
         setSummary({
           updatedAt: String(raw.updatedAt ?? ''),
-          roamers: Array.isArray(raw.roamers) ? raw.roamers.map((r: any) => ({ id: String(r.id), floor: String(r.floor) })) : [],
+          mock: !!raw.meta?.mock,
+          roamers: (Array.isArray(raw.roamers) ? raw.roamers : []).map((r: any) => ({ id: String(r.id), floor: String(r.floor), name: String(r.name ?? r.id), color: String(r.color ?? '#ff8a3d'), status: st(r.status) })),
           floors: (Array.isArray(raw.floors) ? raw.floors : []).map((f: any) => ({
             id: String(f.id),
             completion: Number(f.completion) || 0,
             agents: Number(f.agents) || 0,
+            items: { done: Number(f.items?.done) || 0, total: Number(f.items?.total) || 0 },
             counts: f.counts ?? {},
+            members: (Array.isArray(f.members) ? f.members : []).map((m: any, i: number) => ({ id: String(m.id), name: String(m.name ?? m.id), color: String(m.color ?? '#999'), status: st(m.status), desk: Number.isFinite(m.desk) ? Number(m.desk) : i })),
             updatedAt: f.updatedAt,
           })),
         })
+        setFetchedAt(Date.now())
         setError(false)
       } catch {
         if (!mine.signal.aborted) setError(true)
@@ -219,7 +225,7 @@ export function useBuilding(open: boolean, url = './building.json') {
     const start = () => {
       if (timer) return
       load()
-      timer = setInterval(load, 15000)
+      timer = setInterval(load, intervalMs)
     }
     const stop = () => {
       if (timer) clearInterval(timer)
@@ -233,6 +239,6 @@ export function useBuilding(open: boolean, url = './building.json') {
       document.removeEventListener('visibilitychange', onVis)
       stop()
     }
-  }, [open, url])
-  return { summary, error }
+  }, [open, url, intervalMs])
+  return { summary, error, fetchedAt }
 }

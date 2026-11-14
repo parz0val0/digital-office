@@ -1,4 +1,3 @@
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
@@ -12,7 +11,6 @@ Node.prototype.removeChild = function <T extends Node>(this: Node, child: T): T 
 }
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+  // 不用 StrictMode：drei <Html> 在开发式双挂载下会因为复用同一个 DOM 节点而偶尔丢失内容（楼层标牌消失）
+  <App />,
 )

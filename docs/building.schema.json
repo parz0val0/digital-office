@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Digital Office building.json",
-  "description": "大楼总览汇总（极小）。仅在打开『大楼总览』时读取；由 scripts/update-status.mjs 自动同步。",
+  "description": "整栋楼视图的汇总（极小）。整栋楼视图只读这个文件；由 scripts/update-status.mjs 自动同步。",
   "type": "object",
   "required": [
     "updatedAt",
@@ -45,6 +45,54 @@
               "string",
               "null"
             ]
+          },
+          "items": {
+            "type": "object",
+            "properties": {
+              "done": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            }
+          },
+          "members": {
+            "type": "array",
+            "description": "小人 + 状态色圆点所需的最小信息",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "status"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "color": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "working",
+                    "thinking",
+                    "collaborating",
+                    "waiting",
+                    "done",
+                    "error",
+                    "offline"
+                  ]
+                },
+                "desk": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }
@@ -63,7 +111,24 @@
           },
           "floor": {
             "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
           }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "mock": {
+          "type": "boolean"
         }
       }
     }

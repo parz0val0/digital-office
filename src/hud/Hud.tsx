@@ -15,7 +15,7 @@ import {
   STATUS_META,
 } from '../meta'
 import { themeFor } from '../scene/themes'
-import type { Agent, AgentStatus, BuildingSummary, FeedSource, FloorDef, RoamerInfo, Snapshot } from '../types'
+import type { Agent, AgentStatus, BuildingSummary, FeedSource, FloorDef, Snapshot } from '../types'
 
 function useNow(ms = 1000) {
   const [n, setN] = useState(Date.now())
@@ -48,6 +48,7 @@ export function TopBar({
   source,
   fetchedAt,
   onReset,
+  onBack,
   floor,
   floorLabel,
 }: {
@@ -55,6 +56,7 @@ export function TopBar({
   source: FeedSource
   fetchedAt: number
   onReset: () => void
+  onBack: () => void
   floor: FloorDef | null
   floorLabel: string
 }) {
@@ -83,15 +85,22 @@ export function TopBar({
       <div className="brand">
         <span className="logo">🏢</span>
         <div>
-          <h1>
-            Jason's Digital Office
+          <h1>Jason's Digital Office</h1>
+          <div className="sub crumbs">
+            <button className="crumb" onClick={onBack} title="Back to the whole building (Esc)">
+              ← Building
+            </button>
             {floor && (
-              <span className="floortag">
-                {floorLabel} {floor.name}
-              </span>
+              <>
+                <span className="sep">/</span>
+                <span className="crumb here">
+                  {floorLabel} {floor.name}
+                </span>
+              </>
             )}
-          </h1>
-          <div className="sub">{fmtLongDate(s.plan.date)}</div>
+            <span className="sep">·</span>
+            <span>{fmtLongDate(s.plan.date)}</span>
+          </div>
         </div>
       </div>
       <div className="overall">
@@ -296,7 +305,7 @@ export function DetailPanel({ s, agent, onClose, roaming }: { s: Snapshot; agent
   )
 }
 
-export function Legend() {
+export function Legend({ building }: { building?: boolean }) {
   return (
     <div className="legend">
       {(Object.keys(STATUS_META) as AgentStatus[]).map((k) => (
@@ -305,101 +314,198 @@ export function Legend() {
           {STATUS_META[k].label}
         </span>
       ))}
-      <span className="tip">Drag to rotate · Scroll to zoom · Click a bot for details · ↑/↓ change floor</span>
+      <span className="tip">{building ? 'Click a floor to step inside · Drag to rotate · Scroll to zoom' : 'Drag to rotate · Scroll to zoom · Click a bot for details · ↑/↓ change floor · Esc: building'}</span>
     </div>
   )
 }
 
-/** Elevator-style floor selector + building overview. building.json is only read while the overview is open. */
-export function Elevator({
-  floors,
-  currentId,
-  loading,
-  liveCount,
-  expanded,
-  onToggle,
-  onGo,
-  summary,
-  summaryError,
-  roamers,
-}: {
-  floors: FloorDef[]
-  currentId: string
-  loading: boolean
-  liveCount: number | null
-  expanded: boolean
-  onToggle: () => void
-  onGo: (id: string) => void
-  summary: BuildingSummary | null
-  summaryError: boolean
-  roamers: RoamerInfo[]
-}) {
+const STATUS_KEYS = Object.keys(STATUS_META) as AgentStatus[]
+
+export function buildingTotals(b: BuildingSummary) {
+  const withItems = b.floors.filter((f) => f.items.total > 0)
+  const overall = withItems.length ? Math.round(withItems.reduce((a, f) => a + f.completion, 0) / withItems.length) : 0
+  const counts: Partial<Record<AgentStatus, number>> = {}
+  b.floors.forEach((f) => f.members.forEach((m) => (counts[m.status] = (counts[m.status] ?? 0) + 1)))
+  b.roamers.forEach((r) => (counts[r.status] = (counts[r.status] ?? 0) + 1))
+  const items = b.floors.reduce((a, f) => ({ done: a.done + f.items.done, total: a.total + f.items.total }), { done: 0, total: 0 })
+  const bots = b.floors.reduce((a, f) => a + f.members.length, 0) + b.roamers.length
+  return { overall, counts, items, bots }
+}
+
+/** Top bar for the whole-building view. Numbers come from building.json only. */
+export function BuildingTopBar({ b, error, fetchedAt, onReset }: { b: BuildingSummary | null; error: boolean; fetchedAt: number; onReset: () => void }) {
+  const now = useNow()
+  const t = b ? buildingTotals(b) : null
   return (
-    <nav className={`elevator ${expanded ? 'open' : ''}`} aria-label="Floor selector">
-      <div className="el-head">
-        <b>🛗 Building</b>
-        <button className="btn mini" onClick={onToggle} aria-pressed={expanded} title="Overview reads building.json only — other floors' feeds stay unloaded">
-          {expanded ? 'Collapse' : 'Overview'}
+    <header className="topbar">
+      <div className="brand">
+        <span className="logo">🏢</span>
+        <div>
+          <h1>Jason's Digital Office</h1>
+          <div className="sub crumbs">
+            <span className="crumb here">Building</span>
+            <span className="sep">·</span>
+            <span>{fmtLongDate(new Date().toISOString())}</span>
+          </div>
+        </div>
+      </div>
+      <div className="overall">
+        <div className="overall-head">
+          <span>Whole building · Today's plan</span>
+          <b>{t ? t.overall : '–'}%</b>
+          <em>{t ? `${t.items.done}/${t.items.total} items done` : ''}</em>
+        </div>
+        <Bar value={t?.overall ?? 0} h={14} />
+      </div>
+      <div className="counts">
+        {t &&
+          STATUS_KEYS.filter((k) => t.counts[k]).map((k) => (
+            <span key={k} className="count" title={STATUS_META[k].label} style={{ ['--c' as any]: STATUS_META[k].color }}>
+              <i />
+              {STATUS_META[k].label} {t.counts[k]}
+            </span>
+          ))}
+      </div>
+      <div className="meta">
+        <span className={`src ${error ? 'warn' : b?.mock ? 'demo' : 'live'}`}>
+          <i />
+          {error ? 'building.json not reachable' : !b ? 'Loading…' : b.mock ? 'Example data' : 'Live'}
+        </span>
+        <span className="upd">{b ? `Updated ${fmtHM(b.updatedAt)} · fetched ${fmtAgo(new Date(fetchedAt).toISOString(), now)} ago` : ''}</span>
+        <button className="btn" onClick={onReset} title="Back to the default camera angle">
+          Reset view
         </button>
       </div>
-      <div className="roof" />
-      <div className="stack">
+    </header>
+  )
+}
+
+/** Left panel in building view: floors top → bottom. Reads building.json data only. */
+export function FloorList({ floors, b, hoverId, onHover, onGo }: { floors: FloorDef[]; b: BuildingSummary | null; hoverId: string | null; onHover: (id: string | null) => void; onGo: (id: string) => void }) {
+  return (
+    <aside className="panel left">
+      <h2>
+        Floors <small>{floors.length} floors · top → bottom</small>
+      </h2>
+      <div className="list">
         {floors.map((f, i) => {
-          const cur = f.id === currentId
-          const sum = summary?.floors.find((x) => x.id === f.id)
-          const count = cur && liveCount != null ? liveCount : sum?.agents
           const th = themeFor(f.theme, floors.length - 1 - i)
-          const here = roamers.filter((r) => r.currentFloor === f.id)
+          const sum = b?.floors.find((x) => x.id === f.id)
+          const here = b?.roamers.filter((r) => r.floor === f.id) ?? []
           return (
-            <button
-              key={f.id}
-              className={`flr ${cur ? 'cur' : ''}`}
-              style={{ ['--a' as any]: th.accent }}
-              onClick={() => onGo(f.id)}
-              title={cur ? 'Current floor' : `Go to ${f.label ?? f.order + 'F'} ${f.name}`}
-            >
-              <span className="fl">{f.label ?? `${f.order}F`}</span>
-              <span className="fmain">
-                <span className="fname">
-                  {f.name}
+            <button key={f.id} className={`fcard ${hoverId === f.id ? 'hov' : ''}`} style={{ ['--a' as any]: th.accent }} onMouseEnter={() => onHover(f.id)} onMouseLeave={() => onHover(null)} onClick={() => onGo(f.id)}>
+              <span className="fnum">{f.label ?? `${f.order}F`}</span>
+              <span className="fbody">
+                <span className="ftop">
+                  <b>{f.name}</b>
                   {here.map((r) => (
                     <span key={r.id} className="rmark" style={{ background: r.color }} title={`${r.name} is on this floor (roaming)`}>
                       {r.name}
                     </span>
                   ))}
+                  <em>{sum ? `${Math.round(sum.completion)}%` : '–'}</em>
                 </span>
-                <span className="fcount" title="Members">
-                  {count != null ? `${count} members` : '— members'}
+                <Bar value={sum?.completion ?? 0} color={th.accent} h={6} />
+                <span className="fdots2">
+                  {sum?.members.map((m) => (
+                    <i key={m.id} title={`${m.name} · ${STATUS_META[m.status].label}`} style={{ background: STATUS_META[m.status].color }} />
+                  ))}
+                  {here.map((r) => (
+                    <i key={r.id} className="ro" title={`${r.name} (roaming) · ${STATUS_META[r.status].label}`} style={{ background: STATUS_META[r.status].color }} />
+                  ))}
+                  <small>{sum ? `${sum.members.length} bots` : 'Loading…'}</small>
                 </span>
-                {expanded && (
-                  <span className="fsum">
-                    {sum ? (
-                      <>
-                        <Bar value={sum.completion} color={th.accent} h={5} />
-                        <small>{Math.round(sum.completion)}%</small>
-                      </>
-                    ) : (
-                      <small>{summaryError ? 'No building.json' : 'Loading…'}</small>
-                    )}
-                  </span>
-                )}
-                {expanded && sum && (
-                  <span className="fdots">
-                    {(Object.keys(sum.counts) as AgentStatus[]).map((k) => (
-                      <i key={k} title={`${STATUS_META[k].label} ${sum.counts[k]}`} style={{ background: STATUS_META[k].color }}>
-                        {sum.counts[k]}
-                      </i>
-                    ))}
-                  </span>
-                )}
               </span>
-              {cur && loading && <span className="spin" />}
             </button>
           )
         })}
       </div>
-      <div className="ground" />
-      {expanded && summary && <div className="el-foot">Summary updated {fmtHM(summary.updatedAt)}</div>}
+    </aside>
+  )
+}
+
+/** Right panel in building view: building-wide summary. */
+export function BuildingPanel({ floors, b, onGo }: { floors: FloorDef[]; b: BuildingSummary | null; onGo: (id: string) => void }) {
+  const t = b ? buildingTotals(b) : null
+  return (
+    <section className="panel feed">
+      <h2>Building today</h2>
+      {t && b ? (
+        <>
+          <div className="bsum">
+            <b>{t.overall}%</b>
+            <span>
+              {t.items.done}/{t.items.total} plan items done · {t.bots} bots
+            </span>
+          </div>
+          <Bar value={t.overall} h={10} />
+          <h3>Bot status</h3>
+          <div className="statgrid">
+            {STATUS_KEYS.map((k) => (
+              <span key={k} className={`statcell ${t.counts[k] ? '' : 'zero'}`} style={{ ['--c' as any]: STATUS_META[k].color }}>
+                <i />
+                {STATUS_META[k].label}
+                <b>{t.counts[k] ?? 0}</b>
+              </span>
+            ))}
+          </div>
+          <h3>Roaming</h3>
+          {b.roamers.length ? (
+            b.roamers.map((r) => {
+              const f = floors.find((x) => x.id === r.floor)
+              return (
+                <button key={r.id} className="roamrow" onClick={() => f && onGo(f.id)}>
+                  <span className="rmark" style={{ background: r.color }}>
+                    {r.name}
+                  </span>
+                  is on <b>{f ? `${f.label ?? f.order + 'F'} ${f.name}` : r.floor}</b>
+                  <span className="chip" style={{ ['--c' as any]: STATUS_META[r.status].color }}>
+                    {STATUS_META[r.status].label}
+                  </span>
+                </button>
+              )
+            })
+          ) : (
+            <div className="empty">No roaming bots</div>
+          )}
+          <h3>On-demand loading</h3>
+          <p className="note">This view reads only a tiny building.json. A floor&apos;s own feed (and roaming.json) is fetched only when you step into it — other floors stay untouched.</p>
+        </>
+      ) : (
+        <div className="empty" style={{ padding: '0 14px' }}>
+          Loading building summary…
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** Slim vertical floor strip on the right edge of the stage (takes its own column — never covers the 3D scene). */
+export function FloorStrip({ floors, currentId, loading, hoverId, onHover, onGo, onBuilding }: { floors: FloorDef[]; currentId: string | null; loading: boolean; hoverId: string | null; onHover: (id: string | null) => void; onGo: (id: string) => void; onBuilding: () => void }) {
+  return (
+    <nav className="strip" aria-label="Floors">
+      <button className={`sbtn bld ${currentId == null ? 'cur' : ''}`} onClick={onBuilding} title="Whole building (Esc)">
+        🏢
+      </button>
+      <span className="sline" />
+      {floors.map((f, i) => {
+        const th = themeFor(f.theme, floors.length - 1 - i)
+        const cur = f.id === currentId
+        return (
+          <button
+            key={f.id}
+            className={`sbtn ${cur ? 'cur' : ''} ${hoverId === f.id ? 'hov' : ''}`}
+            style={{ ['--a' as any]: th.accent }}
+            onMouseEnter={() => onHover(f.id)}
+            onMouseLeave={() => onHover(null)}
+            onClick={() => onGo(f.id)}
+            title={`${f.label ?? f.order + 'F'} ${f.name}`}
+          >
+            {f.label ?? `${f.order}F`}
+            {cur && loading && <span className="spin" />}
+          </button>
+        )
+      })}
     </nav>
   )
 }

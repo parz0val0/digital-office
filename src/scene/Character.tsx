@@ -6,7 +6,7 @@ import { STATUS_META } from '../meta'
 import type { Agent } from '../types'
 import { poseRegistry, type Layout } from './layout'
 
-const ACCESSORY: Record<string, string> = {
+export const ACCESSORY: Record<string, string> = {
   office: 'hardhat',
   'class-arrangement': 'bow',
   teacher: 'mortarboard',
@@ -19,11 +19,11 @@ const ACCESSORY: Record<string, string> = {
   'grokbot-market': 'tophat',
   grokbot: 'crown',
 }
-const FALLBACK_ACC = ['hardhat', 'bow', 'antenna', 'headphones', 'cap', 'beret', 'glasses', 'sprout', 'tophat', 'crown']
+export const FALLBACK_ACC = ['hardhat', 'bow', 'antenna', 'headphones', 'cap', 'beret', 'glasses', 'sprout', 'tophat', 'crown']
 
-const lerpColor = (hex: string, to: string, k: number) => '#' + new THREE.Color(hex).lerp(new THREE.Color(to), k).getHexString()
+export const lerpColor = (hex: string, to: string, k: number) => '#' + new THREE.Color(hex).lerp(new THREE.Color(to), k).getHexString()
 
-function Mat({ c, e = 0, rough = 0.7 }: { c: string; e?: number; rough?: number }) {
+export function Mat({ c, e = 0, rough = 0.7 }: { c: string; e?: number; rough?: number }) {
   return <meshStandardMaterial color={c} roughness={rough} emissive={e ? c : '#000'} emissiveIntensity={e} />
 }
 
@@ -43,7 +43,7 @@ function Outlined({ geo, pos, scale, color, outline = '#2b2438', width = 0.035, 
   )
 }
 
-function Accessory({ kind, color, accent }: { kind: string; color: string; accent: string }) {
+export function Accessory({ kind, color, accent }: { kind: string; color: string; accent: string }) {
   const dark = lerpColor(color, '#000000', 0.25)
   switch (kind) {
     case 'hardhat':

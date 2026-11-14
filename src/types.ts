@@ -76,16 +76,35 @@ export interface FloorDef {
   note?: string
 }
 
+export interface BuildingMember {
+  id: string
+  name: string
+  color: string
+  status: AgentStatus
+  desk?: number
+}
+
 export interface BuildingFloorSummary {
   id: string
   completion: number // 0-100
   agents: number
+  items: { done: number; total: number }
   counts: Partial<Record<AgentStatus, number>>
+  members: BuildingMember[] // 总览里小人 + 状态色圆点所需
   updatedAt?: string
+}
+
+export interface BuildingRoamer {
+  id: string
+  floor: string
+  name: string
+  color: string
+  status: AgentStatus
 }
 
 export interface BuildingSummary {
   updatedAt: string
-  roamers?: { id: string; floor: string }[]
+  mock?: boolean
+  roamers: BuildingRoamer[]
   floors: BuildingFloorSummary[]
 }

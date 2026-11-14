@@ -1,6 +1,4 @@
-import { OrbitControls, OrthographicCamera } from '@react-three/drei'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import * as THREE from 'three'
 import { agentName, allAgents, collabLinks, STATUS_META } from '../meta'
 import type { FloorDef, Snapshot } from '../types'
@@ -29,9 +27,6 @@ import { assignDesks, DESK_YAW, makeLayout, type Layout } from './layout'
 import type { Theme } from './themes'
 import { Whiteboard } from './Whiteboard'
 
-const TARGET = new THREE.Vector3(0, 1.1, 0.3)
-const SLIDE = 15 // 楼层切换时的垂直滑动距离
-const SLIDE_SEC = 0.75
 
 /** 漫游成员（如 office）的活动路线：白板前 → 过道 → 会议桌旁，是一条链 */
 function roamChain(layout: Layout): Omit<RoamPlan, 'mode' | 'target'> {
@@ -63,93 +58,14 @@ export interface FloorView {
   theme: Theme
 }
 
-function fitFor(room: { w: number; d: number; wallH: number }, size: { width: number; height: number }) {
+export function fitFor(room: { w: number; d: number; wallH: number }, size: { width: number; height: number }) {
   const wProj = (room.w + room.d) * 0.7071 + 2
   const hProj = (room.w + room.d) * 0.408 + room.wallH * 0.82 + 3.2
   const narrow = size.width < 600
   return narrow ? size.width / (wProj * 0.88) : Math.min(size.width / wProj, size.height / hProj)
 }
 
-function CameraRig({ room, resetKey }: { room: { w: number; d: number; wallH: number }; resetKey: number }) {
-  const { size } = useThree()
-  const cam = useRef<THREE.OrthographicCamera>(null!)
-  const controls = useRef<any>(null)
-  const fitZoom = fitFor(room, size)
-  const fitRef = useRef(fitZoom)
-  fitRef.current = fitZoom
-  const anim = useRef<{ from: number; to: number; t: number } | null>(null)
-  const first = useRef(true)
-
-  // 视角重置
-  useEffect(() => {
-    const c = cam.current
-    const ctl = controls.current
-    if (!c || !ctl) return
-    c.position.set(TARGET.x + 15, TARGET.y + 15, TARGET.z + 15)
-    ctl.target.copy(TARGET)
-    c.zoom = fitRef.current
-    c.updateProjectionMatrix()
-    ctl.update()
-    anim.current = null
-  }, [resetKey])
-
-  // 楼层大小/窗口大小变化：平滑缩放到新的“适配缩放”
-  useEffect(() => {
-    const c = cam.current
-    if (!c) return
-    if (first.current) {
-      first.current = false
-      c.zoom = fitZoom
-      c.updateProjectionMatrix()
-      return
-    }
-    anim.current = { from: c.zoom, to: fitZoom, t: 0 }
-  }, [fitZoom])
-
-  useFrame((_, dt) => {
-    const a = anim.current
-    const c = cam.current
-    if (!a || !c) return
-    a.t = Math.min(1, a.t + dt / SLIDE_SEC)
-    const e = a.t < 0.5 ? 4 * a.t ** 3 : 1 - (-2 * a.t + 2) ** 3 / 2
-    c.zoom = a.from + (a.to - a.from) * e
-    c.updateProjectionMatrix()
-    if (a.t >= 1) anim.current = null
-  })
-
-  return (
-    <>
-      <OrthographicCamera ref={cam} makeDefault position={[15, 16, 15]} zoom={fitZoom} near={-100} far={200} />
-      <OrbitControls
-        ref={controls}
-        makeDefault
-        enableDamping
-        dampingFactor={0.12}
-        minAzimuthAngle={Math.PI / 4 - 0.5}
-        maxAzimuthAngle={Math.PI / 4 + 0.5}
-        minPolarAngle={0.62}
-        maxPolarAngle={1.2}
-        minZoom={fitZoom * 0.7}
-        maxZoom={fitZoom * 3.2}
-        zoomSpeed={0.8}
-        screenSpacePanning
-        panSpeed={0.9}
-        onChange={() => {
-          const t = controls.current?.target as THREE.Vector3 | undefined
-          if (!t) return
-          const c = cam.current
-          const zf = c ? c.zoom / fitRef.current : 1
-          const lim = Math.max(0, (zf - 1) * 5)
-          t.x = THREE.MathUtils.clamp(t.x, -lim, lim)
-          t.z = THREE.MathUtils.clamp(t.z, -lim, lim)
-          t.y = 1.1
-        }}
-      />
-    </>
-  )
-}
-
-interface FloorProps {
+export interface FloorProps {
   view: FloorView
   selectedId: string | null
   onSelect: (id: string | null) => void
@@ -157,7 +73,7 @@ interface FloorProps {
   interactive: boolean
 }
 
-function FloorContent({ view, selectedId, onSelect, onHover, interactive }: FloorProps) {
+export function FloorContent({ view, selectedId, onSelect, onHover, interactive }: FloorProps) {
   const { floor, snapshot, theme } = view
   const n = snapshot.agents.length
   const layout = useMemo(() => makeLayout(Math.max(n, 2)), [n])
@@ -259,95 +175,3 @@ function RoamerChar({ layout, chain, agent, index, selected, partners, onSelect,
   return <Character layout={layout} roam={roam} agent={agent} index={index} deskSlot={0} seat={0} selected={selected} partnerNames={partners} onSelect={onSelect} onHover={onHover} />
 }
 
-/** 楼层电梯式切换：新楼层从上/下滑入，旧楼层向反方向滑出 */
-function FloorStack({ view, selectedId, onSelect, onHover }: Omit<FloorProps, 'interactive'> & { view: FloorView }) {
-  const [leaving, setLeaving] = useState<{ view: FloorView; dir: number } | null>(null)
-  const lastView = useRef(view)
-  const lastFloorId = useRef(view.floor.id)
-  const t = useRef(1)
-  const dir = useRef(1)
-  const curG = useRef<THREE.Group>(null!)
-  const leaveG = useRef<THREE.Group>(null!)
-
-  useEffect(() => {
-    if (lastFloorId.current !== view.floor.id) {
-      const dr = Math.sign(view.floor.order - lastView.current.floor.order) || 1
-      setLeaving({ view: lastView.current, dir: dr })
-      dir.current = dr
-      t.current = 0
-      lastFloorId.current = view.floor.id
-    }
-  }, [view.floor.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    lastView.current = view
-  })
-
-  useFrame((_, dt) => {
-    if (t.current >= 1) {
-      if (curG.current) curG.current.position.y = 0
-      return
-    }
-    t.current = Math.min(1, t.current + dt / SLIDE_SEC)
-    const k = t.current
-    const e = k < 0.5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2
-    // 上行：新楼层从下方升入，旧楼层向上离开
-    if (curG.current) curG.current.position.y = -dir.current * SLIDE * (1 - e)
-    if (leaveG.current) leaveG.current.position.y = dir.current * SLIDE * e
-    if (k >= 1) setLeaving(null)
-  })
-
-  return (
-    <>
-      <group ref={curG}>
-        <FloorContent key={view.floor.id} view={view} selectedId={selectedId} onSelect={onSelect} onHover={onHover} interactive />
-      </group>
-      {leaving && (
-        <group ref={leaveG}>
-          <FloorContent key={'leave-' + leaving.view.floor.id} view={leaving.view} selectedId={null} onSelect={() => {}} onHover={() => {}} interactive={false} />
-        </group>
-      )}
-    </>
-  )
-}
-
-export interface SceneProps {
-  view: FloorView
-  selectedId: string | null
-  onSelect: (id: string | null) => void
-  onHover: (id: string | null) => void
-  resetKey: number
-}
-
-export function Scene({ view, selectedId, onSelect, onHover, resetKey }: SceneProps) {
-  const room = useMemo(() => makeLayout(Math.max(view.snapshot.agents.length, 2)).room, [view.snapshot.agents.length])
-  return (
-    <Canvas
-      shadows="percentage"
-      dpr={[1, 2]}
-      flat
-      gl={{ antialias: true, preserveDrawingBuffer: true }}
-      onPointerMissed={() => onSelect(null)}
-      style={{ position: 'absolute', inset: 0 }}
-    >
-      <CameraRig room={room} resetKey={resetKey} />
-      <ambientLight intensity={0.95} />
-      <hemisphereLight args={['#fff7e8', '#e8c9a0', 0.9]} />
-      <directionalLight
-        position={[9, 18, 8]}
-        intensity={2.1}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-16}
-        shadow-camera-right={16}
-        shadow-camera-top={16}
-        shadow-camera-bottom={-16}
-        shadow-camera-near={1}
-        shadow-camera-far={60}
-        shadow-bias={-0.0004}
-        shadow-radius={4}
-      />
-      <directionalLight position={[-8, 8, 10]} intensity={0.5} />
-      <FloorStack view={view} selectedId={selectedId} onSelect={onSelect} onHover={onHover} />
-    </Canvas>
-  )
-}

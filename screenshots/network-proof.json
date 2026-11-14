@@ -1,398 +1,52 @@
-[
- {
-  "t": 102,
-  "ev": "req",
-  "n": "FLOORS_CFG"
- },
- {
-  "t": 140,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 140,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 2141,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 2141,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 4141,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 4141,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 6148,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 6148,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 8141,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 8141,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 9512,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 9512,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 11503,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 11503,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 13500,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 13500,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 15501,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 15502,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 17502,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 17502,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 19501,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 19501,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 21500,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 21500,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 23500,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 23500,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 25502,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 25502,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 25642,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 25643,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 27629,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 27629,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 29630,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 29630,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 31702,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 31703,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 31991,
-  "ev": "req",
-  "n": "BUILDING"
- },
- {
-  "t": 33627,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 33627,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 35631,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 35631,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 37629,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 37629,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 39628,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 39628,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 41628,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 41628,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 43631,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 43634,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 45628,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 45628,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 47636,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 47636,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 49628,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 49629,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 51628,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 51628,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 53631,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 53631,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 63312,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 63312,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 65313,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 65313,
-  "ev": "req",
-  "n": "competition"
- },
- {
-  "t": 66661,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 66662,
-  "ev": "req",
-  "n": "class"
- },
- {
-  "t": 67254,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 67254,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 67304,
-  "ev": "ABORT/FAIL",
-  "n": "class",
-  "why": "net::ERR_ABORTED"
- },
- {
-  "t": 69660,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 69660,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 71252,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 71252,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 73255,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 73255,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 75254,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 75254,
-  "ev": "req",
-  "n": "lobby"
- },
- {
-  "t": 77252,
-  "ev": "req",
-  "n": "ROAMING"
- },
- {
-  "t": 77252,
-  "ev": "req",
-  "n": "lobby"
- }
-]
+{
+  "note": "interval=2000ms; headless swiftshader",
+  "A_building_view_9s": {
+    "FLOORS_CFG": 1,
+    "BUILDING": 5,
+    "ROAMING": 0,
+    "lobby": 0,
+    "class": 0,
+    "competition": 0
+  },
+  "B_in_class_7s": {
+    "FLOORS_CFG": 0,
+    "BUILDING": 0,
+    "ROAMING": 4,
+    "lobby": 0,
+    "class": 4,
+    "competition": 0
+  },
+  "B_since_click": {
+    "FLOORS_CFG": 0,
+    "BUILDING": 0,
+    "ROAMING": 22,
+    "lobby": 0,
+    "class": 22,
+    "competition": 0
+  },
+  "C_after_exit_7s": {
+    "FLOORS_CFG": 0,
+    "BUILDING": 4,
+    "ROAMING": 0,
+    "lobby": 0,
+    "class": 0,
+    "competition": 0
+  },
+  "D_in_lobby_6s": {
+    "FLOORS_CFG": 0,
+    "BUILDING": 0,
+    "ROAMING": 3,
+    "lobby": 3,
+    "class": 0,
+    "competition": 0
+  },
+  "E_back_in_building_6s": {
+    "FLOORS_CFG": 0,
+    "BUILDING": 3,
+    "ROAMING": 0,
+    "lobby": 0,
+    "class": 0,
+    "competition": 0
+  },
+  "aborts": []
+}

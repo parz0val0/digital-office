@@ -124,10 +124,14 @@ function summarizeAll() {
     const completion = items.length ? Math.round(items.reduce((a, i) => a + (i.status === 'done' ? 100 : Math.max(0, Math.min(100, Number(i.progress) || 0))), 0) / items.length) : 0
     const counts = {}
     for (const a of d?.agents ?? []) counts[a.status] = (counts[a.status] ?? 0) + 1
-    out.floors.push({ id: f.id, completion, agents: (d?.agents ?? []).length, counts, updatedAt: d?.updatedAt ?? null })
+    if (d?.meta?.mock) out.meta = { mock: true }
+    const doneItems = items.filter((i) => i.status === 'done').length
+    // members：building 总览里每个小人（状态色圆点）所需的最小信息，避免总览时去读各楼层 feed
+    const members = (d?.agents ?? []).map((a) => ({ id: a.id, name: a.name, color: a.color, status: a.status, desk: a.desk }))
+    out.floors.push({ id: f.id, completion, agents: members.length, items: { done: doneItems, total: items.length }, counts, members, updatedAt: d?.updatedAt ?? null })
   }
   const roam = fs.existsSync(roamingFile) ? readJson(roamingFile) : null
-  out.roamers = (roam?.roamers ?? []).map((r) => ({ id: r.id, floor: r.currentFloor }))
+  out.roamers = (roam?.roamers ?? []).map((r) => ({ id: r.id, floor: r.currentFloor, name: r.name, color: r.color, status: r.status }))
   return out
 }
 function syncBuilding() {
